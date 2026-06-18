@@ -97,3 +97,16 @@ coverage/
 .Trashes
 ehthumbs.db
 Thumbs.db
+
+.codegraph/
+src/.codegraph/
+backend/src/.codegraph/
+local-backups/*
+!local-backups/.gitkeep
+.npm-cache-local/
+node_modules.partial/
+backend/node_modules.partial/
+backend/.npm-cache-local/
+.pg-baseline/
+.pg-baseline.log
+.docker-local-runtime/

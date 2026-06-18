@@ -72,8 +72,25 @@ export const TENANT_PLAN_LIMITS: Record<SubscriptionPlan, TenantPlanLimits> = {
   },
 };
 
+export const UNLIMITED_PLAN_LIMITS: TenantPlanLimits = {
+  maxUsers: -1,
+  maxCustomers: -1,
+  maxSuppliers: -1,
+  maxBankAccounts: -1,
+  monthly: { maxInvoices: -1, maxExpenses: -1 },
+};
+
 export class TenantPlanLimitService {
+  // LOCAL_MODE: on-premise/local kurulumda tüm plan limitleri global olarak devre dışıdır.
+  // Hangi metoda hangi yoldan gelinirse gelinsin sınırsız kabul edilir.
+  static isLocalModeEnv(): boolean {
+    return String(process.env.LOCAL_MODE).trim().toLowerCase() === 'true';
+  }
+
   static getLimits(plan: SubscriptionPlan): TenantPlanLimits {
+    if (this.isLocalModeEnv()) {
+      return UNLIMITED_PLAN_LIMITS;
+    }
     return (
       TENANT_PLAN_LIMITS[plan] ?? TENANT_PLAN_LIMITS[SubscriptionPlan.FREE]
     );
@@ -124,6 +141,14 @@ export class TenantPlanLimitService {
   static getLimitsForTenant(
     tenant: Pick<Tenant, 'subscriptionPlan' | 'settings'>,
   ): TenantPlanLimits {
+    // LOCAL_MODE: bypass all plan limits globally (env veya tenant ayarı)
+    if (
+      this.isLocalModeEnv() ||
+      (this.isRecord(tenant.settings) && tenant.settings['isLocalMode'] === true)
+    ) {
+      return UNLIMITED_PLAN_LIMITS;
+    }
+
     const base = this.getLimits(tenant.subscriptionPlan);
     const overrides = this.extractTenantPlanOverrides(tenant.settings);
     return this.mergeWithOverrides(base, overrides);
@@ -340,7 +365,7 @@ export class TenantPlanLimitService {
     return Object.keys(overrides).length > 0 ? overrides : undefined;
   }
 
-  private static isRecord(value: unknown): value is Record<string, unknown> {
+  static isRecord(value: unknown): value is Record<string, unknown> {
     return typeof value === 'object' && value !== null;
   }
 }

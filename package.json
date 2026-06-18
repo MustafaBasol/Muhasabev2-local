@@ -8,6 +8,10 @@
     "build": "vite build",
     "lint": "eslint .",
     "preview": "vite preview",
+    "local:start": "powershell -ExecutionPolicy Bypass -File ./start-local.ps1",
+    "local:stop": "powershell -ExecutionPolicy Bypass -File ./stop-local.ps1",
+    "local:backup": "powershell -ExecutionPolicy Bypass -File ./backup-local.ps1",
+    "local:restore": "powershell -ExecutionPolicy Bypass -File ./restore-local.ps1",
     "start:all": "./start-dev.sh",
     "stop:all": "./stop-dev.sh",
     "start:backend": "./start-backend.sh"

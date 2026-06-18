@@ -71,6 +71,71 @@ const toRequestHandler = (middleware: unknown): RequestHandler => {
   return middleware as RequestHandler;
 };
 
+const LOCAL_BASELINE_MIGRATION = 'InitialSchema1769999999999';
+
+const migrationTimestamp = (name?: string): number => {
+  const match = (name ?? '').match(/(\d{13})$/);
+  return match ? Number(match[1]) : 0;
+};
+
+const runPendingMigrations = async (dataSource: DataSource): Promise<void> => {
+  const migrations = [...dataSource.migrations];
+  const baseline = migrations.find(
+    (migration) => migration.name === LOCAL_BASELINE_MIGRATION,
+  );
+  const usersTableExists = Boolean(
+    (
+      (await dataSource.query(
+        `SELECT to_regclass('public.users') AS "tableName"`,
+      )) as Array<{ tableName?: string | null }>
+    )[0]?.tableName,
+  );
+
+  if (!usersTableExists && baseline) {
+    const baselineTimestamp = migrationTimestamp(baseline.name);
+    const historical = migrations.filter(
+      (migration) =>
+        migration !== baseline &&
+        migrationTimestamp(migration.name) < baselineTimestamp,
+    );
+    const future = migrations.filter(
+      (migration) => migrationTimestamp(migration.name) > baselineTimestamp,
+    );
+
+    try {
+      dataSource.migrations.splice(
+        0,
+        dataSource.migrations.length,
+        baseline,
+      );
+      await dataSource.runMigrations();
+
+      dataSource.migrations.splice(
+        0,
+        dataSource.migrations.length,
+        ...historical,
+      );
+      await dataSource.runMigrations({ fake: true });
+
+      dataSource.migrations.splice(
+        0,
+        dataSource.migrations.length,
+        ...future,
+      );
+      await dataSource.runMigrations();
+    } finally {
+      dataSource.migrations.splice(
+        0,
+        dataSource.migrations.length,
+        ...migrations,
+      );
+    }
+    return;
+  }
+
+  await dataSource.runMigrations();
+};
+
 type RequestHandlerFactory<TArgs extends unknown[] = []> = (
   ...args: TArgs
 ) => RequestHandler;
@@ -91,6 +156,10 @@ const cspNonceMiddleware: RequestHandler = (_req, res, next) => {
 };
 
 const secureCookieMiddleware: RequestHandler = (_req, res, next) => {
+  const isLocalMode =
+    String(process.env.LOCAL_MODE).trim().toLowerCase() === 'true';
+  const useSecureCookies =
+    process.env.NODE_ENV === 'production' && !isLocalMode;
   const originalCookie: typeof res.cookie = bindCookie(res);
   const secureCookie: typeof res.cookie = (
     name: Parameters<typeof res.cookie>[0],
@@ -99,12 +168,11 @@ const secureCookieMiddleware: RequestHandler = (_req, res, next) => {
   ) => {
     const secureOptions: CookieOptions = {
       httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite:
-        process.env.NODE_ENV === 'production' ? ('strict' as const) : 'lax',
+      sameSite: useSecureCookies ? ('strict' as const) : 'lax',
       maxAge: 24 * 60 * 60 * 1000,
       path: '/',
       ...options,
+      secure: useSecureCookies,
     };
     return originalCookie(name, value, secureOptions);
   };
@@ -114,6 +182,8 @@ const secureCookieMiddleware: RequestHandler = (_req, res, next) => {
 
 async function bootstrap() {
   const isProd = process.env.NODE_ENV === 'production';
+  const isLocalMode =
+    String(process.env.LOCAL_MODE).trim().toLowerCase() === 'true';
   const app = await NestFactory.create<NestExpressApplication>(AppModule, {
     logger: isProd
       ? ['error', 'warn', 'log']
@@ -145,7 +215,7 @@ async function bootstrap() {
           frameSrc: ["'none'"],
         },
       },
-      hsts: isProd
+      hsts: isProd && !isLocalMode
         ? { maxAge: 15552000, includeSubDomains: true, preload: false }
         : false,
       frameguard: { action: 'deny' },
@@ -183,7 +253,7 @@ async function bootstrap() {
     const pendingMigrations = await dataSource.showMigrations(); // TypeORM'in showMigrations() sadece boolean döndürüyor (true -> pending var)
     if (pendingMigrations) {
       console.log('🚀 Pending migration(lar) bulundu. Çalıştırılıyor...');
-      await dataSource.runMigrations();
+      await runPendingMigrations(dataSource);
       console.log('✅ Migration(lar) başarıyla uygulandı.');
     } else {
       console.log('✅ Uygulanacak migration yok.');
@@ -210,6 +280,9 @@ async function bootstrap() {
     setHeaders: (res: Response, filePath: string) => {
       if (/\.(?:js|css|svg|png|jpg|jpeg|gif|woff2?)$/i.test(filePath)) {
         res.setHeader('Cache-Control', 'public, max-age=604800, immutable');
+      } else if (/\.html?$/i.test(filePath)) {
+        res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+        res.setHeader('Pragma', 'no-cache');
       }
     },
   }); // Gelişmiş CORS yapılandırması - Codespaces ve prod için güvenli
@@ -250,6 +323,8 @@ async function bootstrap() {
       // Statik dosya isteklerini (uzantılı) bozma
       if (path.includes('.')) return next();
 
+      res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+      res.setHeader('Pragma', 'no-cache');
       return res.sendFile(spaIndexPath, (err) => {
         if (err) return next(err);
       });

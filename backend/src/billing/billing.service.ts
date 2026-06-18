@@ -4,6 +4,7 @@ import {
   NotFoundException,
   BadRequestException,
   Logger,
+  ServiceUnavailableException,
 } from '@nestjs/common';
 import Stripe from 'stripe';
 import { InjectRepository } from '@nestjs/typeorm';
@@ -70,12 +71,34 @@ export class BillingService {
     private readonly tenantRepo: Repository<Tenant>,
   ) {
     const apiKey = process.env.STRIPE_SECRET_KEY;
-    if (!apiKey) {
-      throw new Error('STRIPE_SECRET_KEY is not set');
+    const stripeEnabled =
+      String(process.env.STRIPE_ENABLED ?? 'true').trim().toLowerCase() !==
+        'false' &&
+      String(process.env.LOCAL_MODE).trim().toLowerCase() !== 'true' &&
+      Boolean(apiKey);
+    if (!stripeEnabled) {
+      this.logger.warn(
+        'Stripe billing is disabled; billing endpoints will return a controlled unavailable response',
+      );
+      this.stripe = this.createDisabledStripeClient();
+      return;
     }
-    this.stripe = new Stripe(apiKey, {
+    this.stripe = new Stripe(apiKey!, {
       apiVersion: '2023-10-16',
     });
+  }
+
+  private createDisabledStripeClient(): Stripe {
+    const unavailable = () => {
+      throw new ServiceUnavailableException(
+        'Stripe billing is disabled in local/on-premise mode',
+      );
+    };
+    const disabled = new Proxy(unavailable, {
+      get: () => disabled,
+      apply: unavailable,
+    });
+    return disabled as unknown as Stripe;
   }
 
   // Son sync isteklerini hafifletmek için basit in-memory throttle

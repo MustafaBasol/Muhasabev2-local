@@ -142,23 +142,40 @@ export class TenantsService {
     const uniqueName = await this.generateUniqueName(createTenantDto.name);
     const slug = await this.generateUniqueSlug(uniqueName);
 
+    const isLocalMode =
+      String(process.env.LOCAL_MODE).trim().toLowerCase() === 'true';
+
+    const localModeSettings = isLocalMode
+      ? {
+          isLocalMode: true,
+          planOverrides: {
+            maxUsers: -1,
+            maxCustomers: -1,
+            maxSuppliers: -1,
+            maxBankAccounts: -1,
+            monthly: { maxInvoices: -1, maxExpenses: -1 },
+          },
+        }
+      : {};
+
     // FREE/STARTER plan süresizdir, subscriptionExpiresAt null olmalı
     const tenant = this.tenantsRepository.create({
       ...createTenantDto,
       name: uniqueName,
       slug,
-      subscriptionPlan: SubscriptionPlan.FREE,
+      subscriptionPlan: isLocalMode
+        ? SubscriptionPlan.ENTERPRISE
+        : SubscriptionPlan.FREE,
       status: TenantStatus.ACTIVE,
-      subscriptionExpiresAt: null, // FREE plan süresiz
-      // Starter/Free plan başlangıç kullanıcı limiti 1 olmalı
-      maxUsers: 1,
-      settings: {},
+      subscriptionExpiresAt: null,
+      maxUsers: isLocalMode ? -1 : 1,
+      settings: localModeSettings,
       features: {
         multiUser: true,
         customerManagement: true,
         basicReporting: true,
-        exportData: false,
-        advancedReporting: false,
+        exportData: isLocalMode,
+        advancedReporting: isLocalMode,
         apiAccess: false,
       },
     });

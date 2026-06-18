@@ -82,7 +82,10 @@ export class CSRFMiddleware implements NestMiddleware {
    * Yalnızca production ortamında CSRF doğrulamasını zorunlu kıl
    */
   private shouldEnforceCSRF(): boolean {
-    return process.env.NODE_ENV === 'production';
+    return (
+      process.env.NODE_ENV === 'production' &&
+      String(process.env.LOCAL_MODE).trim().toLowerCase() !== 'true'
+    );
   }
 
   /**
@@ -127,8 +130,14 @@ export class CSRFMiddleware implements NestMiddleware {
       sessionId = crypto.randomBytes(32).toString('hex');
       res.cookie('csrf-session', sessionId, {
         httpOnly: true,
-        secure: process.env.NODE_ENV === 'production',
-        sameSite: 'strict',
+        secure:
+          process.env.NODE_ENV === 'production' &&
+          String(process.env.LOCAL_MODE).trim().toLowerCase() !== 'true',
+        sameSite:
+          process.env.NODE_ENV === 'production' &&
+          String(process.env.LOCAL_MODE).trim().toLowerCase() !== 'true'
+            ? 'strict'
+            : 'lax',
         maxAge: this.TOKEN_EXPIRY,
       });
     }

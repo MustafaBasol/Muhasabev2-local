@@ -12,15 +12,19 @@ type RequestWithRawBody = Request & {
 @SkipThrottle()
 @Controller('webhooks/stripe')
 export class StripeWebhookController {
-  private stripe: Stripe;
+  private stripe: Stripe | null = null;
   private webhookSecret = process.env.STRIPE_WEBHOOK_SECRET || '';
 
   constructor(private readonly billing: BillingService) {
     const apiKey = process.env.STRIPE_SECRET_KEY;
-    if (!apiKey) {
-      throw new Error('STRIPE_SECRET_KEY is not set');
+    const stripeEnabled =
+      String(process.env.STRIPE_ENABLED ?? 'true').trim().toLowerCase() !==
+        'false' &&
+      String(process.env.LOCAL_MODE).trim().toLowerCase() !== 'true' &&
+      Boolean(apiKey);
+    if (stripeEnabled) {
+      this.stripe = new Stripe(apiKey!, { apiVersion: '2023-10-16' });
     }
-    this.stripe = new Stripe(apiKey, { apiVersion: '2023-10-16' });
   }
 
   // Not: main.ts içinde bu route için raw body gerekecek; burada sadece tipi any kabul ediyoruz.
@@ -31,10 +35,17 @@ export class StripeWebhookController {
     @Res() res: Response,
     @Headers('stripe-signature') sig: string,
   ) {
+    const stripe = this.stripe;
+    if (!stripe) {
+      return res.status(503).json({
+        statusCode: 503,
+        message: 'Stripe webhooks are disabled in local/on-premise mode',
+      });
+    }
     let event: Stripe.Event;
     try {
       const buf = this.extractRawBody(req);
-      event = this.stripe.webhooks.constructEvent(buf, sig, this.webhookSecret);
+      event = stripe.webhooks.constructEvent(buf, sig, this.webhookSecret);
     } catch (err) {
       const message = err instanceof Error ? err.message : 'unknown error';
       return res.status(400).send(`Webhook Error: ${message}`);
@@ -49,7 +60,7 @@ export class StripeWebhookController {
               typeof session.subscription === 'string'
                 ? session.subscription
                 : session.subscription.id;
-            const sub = await this.stripe.subscriptions.retrieve(subId);
+            const sub = await stripe.subscriptions.retrieve(subId);
             await this.billing.applySubscriptionUpdateFromStripe(sub);
           }
           break;

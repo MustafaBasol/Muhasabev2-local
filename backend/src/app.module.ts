@@ -104,6 +104,16 @@ const parseDatabaseUrl = (value?: string): PgUrlParts | null => {
     TypeOrmModule.forRootAsync({
       useFactory: () => {
         const isProd = process.env.NODE_ENV === 'production';
+        const isLocalMode =
+          String(process.env.LOCAL_MODE).trim().toLowerCase() === 'true';
+        const synchronizeEnv = String(
+          process.env.TYPEORM_SYNCHRONIZE ?? 'true',
+        )
+          .trim()
+          .toLowerCase();
+        const synchronize =
+          !isLocalMode &&
+          ['true', '1', 'yes', 'on'].includes(synchronizeEnv);
         const isTest =
           process.env.NODE_ENV === 'test' ||
           typeof process.env.JEST_WORKER_ID !== 'undefined';
@@ -212,8 +222,9 @@ const parseDatabaseUrl = (value?: string): PgUrlParts | null => {
           username,
           password,
           database,
-          entities, // migrations,
-          synchronize: true,
+          entities,
+          migrations,
+          synchronize,
           dropSchema: false,
           logging: process.env.NODE_ENV === 'development',
           ssl: false,

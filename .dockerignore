@@ -1,0 +1,17 @@
+.git
+.codegraph
+src/.codegraph
+backend/src/.codegraph
+node_modules
+backend/node_modules
+node_modules.partial
+backend/node_modules.partial
+.npm-cache-local
+backend/.npm-cache-local
+dist
+backend/dist
+backend/public/assets
+local-backups
+*.log
+*.sql
+*.zip

@@ -1,0 +1,15 @@
+node_modules/
+.next/
+dist/
+build/
+coverage/
+.cache/
+.turbo/
+.prisma/
+.git/
+.codegraph/
+*.log
+*.lock
+package-lock.json
+pnpm-lock.yaml
+yarn.lock

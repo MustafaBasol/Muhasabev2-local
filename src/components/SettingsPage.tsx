@@ -283,6 +283,9 @@ const PlanTab: React.FC<PlanTabProps> = ({ tenant, currentLanguage, text }) => {
     }
     return resolvedTenantId;
   };
+  const isLocalModeTenant =
+    tenant?.settings?.isLocalMode === true ||
+    import.meta.env.VITE_LOCAL_MODE === 'true';
   const planLabelMap: Record<string, string> = {
     free: 'Starter',
     starter: 'Starter',
@@ -292,7 +295,9 @@ const PlanTab: React.FC<PlanTabProps> = ({ tenant, currentLanguage, text }) => {
     enterprise: 'Business',
     business: 'Business',
   };
-  const planText = planLabelMap[planRaw] || planLabelMap[normalizedPlanSlug] || (planRaw ? planRaw.toUpperCase() : '—');
+  const planText = isLocalModeTenant
+    ? 'Local / On-Premise License'
+    : (planLabelMap[planRaw] || planLabelMap[normalizedPlanSlug] || (planRaw ? planRaw.toUpperCase() : '—'));
   const periodMap: Record<SettingsLanguage, { month: string; year: string }> = {
     tr: { month: t('common:planTab.monthly'), year: t('common:planTab.yearly') },
     en: { month: t('common:planTab.monthly'), year: t('common:planTab.yearly') },
@@ -317,7 +322,7 @@ const PlanTab: React.FC<PlanTabProps> = ({ tenant, currentLanguage, text }) => {
     return undefined;
   })();
   const effectiveInterval = inferredInterval; // 'month' | 'year' | undefined
-  const periodText = isFree
+  const periodText = (isFree || isLocalModeTenant)
     ? ''
     : (effectiveInterval
         ? (periodMap[currentLanguage]?.[effectiveInterval] || (effectiveInterval === 'year' ? 'Yearly' : 'Monthly'))
@@ -1103,52 +1108,62 @@ const PlanTab: React.FC<PlanTabProps> = ({ tenant, currentLanguage, text }) => {
 
         {/* Plan Seçenekleri */}
         <div className="md:col-span-2 bg-white border border-gray-200 rounded-lg p-4">
-          <div className="text-sm font-semibold text-gray-900 mb-3">{t('common:planTab.changePlan')}</div>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-            {[{key:'professional', label:t('common:planTab.plans.labels.professional'), price:t('common:planTab.prices.monthly.pro'), bullets:[t('common:planTab.plans.bullets.proIncluded'), t('common:planTab.plans.bullets.basicAutomations')]},
-              {key:'enterprise', label:t('common:planTab.plans.labels.enterprise'), price:t('common:planTab.prices.monthly.enterprise'), bullets:[t('common:planTab.plans.bullets.businessIncluded'), t('common:planTab.plans.bullets.advancedAutomations')]},
-              {key:'free', label:t('common:planTab.plans.labels.free'), price:t('common:planTab.prices.monthly.free'), bullets:[t('common:planTab.plans.bullets.freeLimited')]}].map(opt => (
-              <button
-                key={opt.key}
-                type="button"
-                onClick={() => setDesiredPlan(opt.key)}
-                className={`text-left rounded-lg border p-3 hover:border-indigo-400 transition ${String(desiredPlan)===opt.key? 'border-indigo-500 ring-1 ring-indigo-200 bg-indigo-50' : 'border-gray-200 bg-white'}`}
-              >
-                <div className="flex items-center justify-between">
-                  <div className="font-semibold text-gray-900">{opt.label}</div>
-                  <div className="text-sm text-indigo-600 font-medium">{opt.price}</div>
-                </div>
-                <ul className="mt-2 text-xs text-gray-600 space-y-1 list-disc list-inside">
-                  {opt.bullets.map((b,i)=>(<li key={i}>{b}</li>))}
-                </ul>
-              </button>
-            ))}
-          </div>
-          {/* Dönem seçimi ve Planı Güncelle butonu — üst alana taşındı */}
-          <div className="mt-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-            <div>
-              <div className="text-xs text-gray-600 mb-1">{t('common:planTab.billingCycle')}</div>
-              <div className="inline-flex rounded-md border border-gray-300 overflow-hidden">
-                <button
-                  type="button"
-                  onClick={() => setDesiredBilling('monthly')}
-                  className={`px-3 py-1.5 text-sm ${desiredBilling==='monthly' ? 'bg-indigo-600 text-white' : 'bg-white text-gray-700'}`}
-                >{t('common:planTab.monthly')}</button>
-                <button
-                  type="button"
-                  onClick={() => setDesiredBilling('yearly')}
-                  className={`px-3 py-1.5 text-sm ${desiredBilling==='yearly' ? 'bg-indigo-600 text-white' : 'bg-white text-gray-700'}`}
-                >{t('common:planTab.yearly')} <span className="ml-1 text-[10px] opacity-80">{t('common:planTab.yearlyNote')}</span></button>
+          {isLocalModeTenant ? (
+            <div className="text-sm text-gray-700 bg-blue-50 border border-blue-200 rounded-lg p-4">
+              <div className="font-semibold text-blue-900 mb-1">Local / On-Premise License</div>
+              <p className="text-xs text-blue-800">
+                This installation is running in local/on-premise mode. Online billing and plan upgrades are not available. All features are included with your local license.
+              </p>
+            </div>
+          ) : (
+            <>
+              <div className="text-sm font-semibold text-gray-900 mb-3">{t('common:planTab.changePlan')}</div>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                {[{key:'professional', label:t('common:planTab.plans.labels.professional'), price:t('common:planTab.prices.monthly.pro'), bullets:[t('common:planTab.plans.bullets.proIncluded'), t('common:planTab.plans.bullets.basicAutomations')]},
+                  {key:'enterprise', label:t('common:planTab.plans.labels.enterprise'), price:t('common:planTab.prices.monthly.enterprise'), bullets:[t('common:planTab.plans.bullets.businessIncluded'), t('common:planTab.plans.bullets.advancedAutomations')]},
+                  {key:'free', label:t('common:planTab.plans.labels.free'), price:t('common:planTab.prices.monthly.free'), bullets:[t('common:planTab.plans.bullets.freeLimited')]}].map(opt => (
+                  <button
+                    key={opt.key}
+                    type="button"
+                    onClick={() => setDesiredPlan(opt.key)}
+                    className={`text-left rounded-lg border p-3 hover:border-indigo-400 transition ${String(desiredPlan)===opt.key? 'border-indigo-500 ring-1 ring-indigo-200 bg-indigo-50' : 'border-gray-200 bg-white'}`}
+                  >
+                    <div className="flex items-center justify-between">
+                      <div className="font-semibold text-gray-900">{opt.label}</div>
+                      <div className="text-sm text-indigo-600 font-medium">{opt.price}</div>
+                    </div>
+                    <ul className="mt-2 text-xs text-gray-600 space-y-1 list-disc list-inside">
+                      {opt.bullets.map((b,i)=>(<li key={i}>{b}</li>))}
+                    </ul>
+                  </button>
+                ))}
               </div>
-            </div>
-            <div>
-              <button
-                onClick={openPlanConfirm}
-                disabled={busy}
-                className="px-4 py-2 text-sm font-medium rounded-md bg-indigo-600 text-white hover:bg-indigo-700 disabled:opacity-60"
-              >{t('common:planTab.updatePlan')}</button>
-            </div>
-          </div>
+              <div className="mt-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                <div>
+                  <div className="text-xs text-gray-600 mb-1">{t('common:planTab.billingCycle')}</div>
+                  <div className="inline-flex rounded-md border border-gray-300 overflow-hidden">
+                    <button
+                      type="button"
+                      onClick={() => setDesiredBilling('monthly')}
+                      className={`px-3 py-1.5 text-sm ${desiredBilling==='monthly' ? 'bg-indigo-600 text-white' : 'bg-white text-gray-700'}`}
+                    >{t('common:planTab.monthly')}</button>
+                    <button
+                      type="button"
+                      onClick={() => setDesiredBilling('yearly')}
+                      className={`px-3 py-1.5 text-sm ${desiredBilling==='yearly' ? 'bg-indigo-600 text-white' : 'bg-white text-gray-700'}`}
+                    >{t('common:planTab.yearly')} <span className="ml-1 text-[10px] opacity-80">{t('common:planTab.yearlyNote')}</span></button>
+                  </div>
+                </div>
+                <div>
+                  <button
+                    onClick={openPlanConfirm}
+                    disabled={busy}
+                    className="px-4 py-2 text-sm font-medium rounded-md bg-indigo-600 text-white hover:bg-indigo-700 disabled:opacity-60"
+                  >{t('common:planTab.updatePlan')}</button>
+                </div>
+              </div>
+            </>
+          )}
         </div>
       </div>
 
@@ -1247,7 +1262,7 @@ const PlanTab: React.FC<PlanTabProps> = ({ tenant, currentLanguage, text }) => {
         {planMessage && <div className="mt-3 text-xs text-indigo-700 bg-indigo-50 border border-indigo-200 px-3 py-2 rounded">{planMessage}</div>}
         <div className="mt-2 text-[11px] text-gray-500">{t('common:planTab.amountsNote')}</div>
       {/* İptal Seçenekleri */}
-      {!isFree && (
+      {!isFree && !isLocalModeTenant && (
         <div className="border border-red-300 rounded-lg p-4 bg-red-50 space-y-3">
           <h4 className="text-md font-semibold mb-2">{t('common:planTab.subscriptionStatus')}</h4>
           <p className="text-xs text-red-700">{t('common:planTab.subscriptionCancelNote')}</p>

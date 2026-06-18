@@ -1,0 +1,98 @@
+name: muhasabe-local
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: muhasabe-local-postgres
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-moneyflow}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-change_this_local_database_password}
+      POSTGRES_DB: ${POSTGRES_DB:-moneyflow_local}
+    ports:
+      - "127.0.0.1:5433:5432"
+    volumes:
+      - local_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "pg_isready -U ${POSTGRES_USER:-moneyflow} -d ${POSTGRES_DB:-moneyflow_local}",
+        ]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    container_name: muhasabe-local-redis
+    command: redis-server --appendonly yes
+    ports:
+      - "127.0.0.1:6379:6379"
+    volumes:
+      - local_redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    restart: unless-stopped
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile.local
+      args:
+        VITE_API_URL: /api
+        VITE_EMAIL_VERIFICATION_REQUIRED: "false"
+        VITE_TURNSTILE_SITE_KEY: ""
+        VITE_CAPTCHA_DEV_BYPASS: "true"
+    container_name: muhasabe-local-app
+    env_file:
+      - ./backend/.env.local
+    environment:
+      DATABASE_HOST: postgres
+      DATABASE_PORT: 5432
+      DATABASE_USER: ${POSTGRES_USER:-moneyflow}
+      DATABASE_PASSWORD: ${POSTGRES_PASSWORD:-change_this_local_database_password}
+      DATABASE_NAME: ${POSTGRES_DB:-moneyflow_local}
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+    ports:
+      - "127.0.0.1:3000:3000"
+    volumes:
+      - local_blog_assets:/app/backend/public/assets/blog
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:3000/api/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+      start_period: 20s
+    restart: unless-stopped
+
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    container_name: muhasabe-local-pgadmin
+    profiles: ["support"]
+    environment:
+      PGADMIN_DEFAULT_EMAIL: ${PGADMIN_DEFAULT_EMAIL:-support@localhost.local}
+      PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_DEFAULT_PASSWORD:-change_this_pgadmin_password}
+    ports:
+      - "127.0.0.1:5051:80"
+    volumes:
+      - local_pgadmin_data:/var/lib/pgadmin
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+
+volumes:
+  local_postgres_data:
+  local_redis_data:
+  local_blog_assets:
+  local_pgadmin_data:

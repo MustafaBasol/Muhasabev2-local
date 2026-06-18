@@ -3,6 +3,10 @@ import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource } from 'typeorm';
 import * as fs from 'fs';
 import * as path from 'path';
+import {
+  SubscriptionPlan,
+  Tenant,
+} from '../tenants/entities/tenant.entity';
 
 @Injectable()
 export class SeedService {
@@ -17,6 +21,15 @@ export class SeedService {
     try {
       // Şema uyumluluğunu sağla (idempotent düzeltmeler)
       await this.ensureSchemaCompatibility();
+
+      if (String(process.env.LOCAL_MODE).trim().toLowerCase() === 'true') {
+        // Mevcut (fix öncesi oluşturulmuş) tenant'ları local/sınırsız olarak işaretle
+        await this.bootstrapLocalTenants();
+        this.logger.log(
+          'Local mode: demo/default user seed skipped; first user registers through the UI',
+        );
+        return;
+      }
 
       // Check if database is empty
       const existingUsers = await this.getExistingUserCount();
@@ -46,6 +59,68 @@ export class SeedService {
         `❌ Error seeding database: ${this.getErrorMessage(error)}`,
       );
       // Don't throw - allow app to start even if seeding fails
+    }
+  }
+
+  /**
+   * LOCAL_MODE: Fix öncesinde FREE/Starter olarak oluşturulmuş mevcut tenant'ları
+   * local/on-premise sınırsız lisansa yükseltir. Idempotent'tir; manuel SQL gerekmez.
+   * settings içindeki diğer alanlar (vergi bilgileri vb.) korunur, sadece local
+   * mod işaretleri merge edilir.
+   */
+  private async bootstrapLocalTenants() {
+    try {
+      const tenantRepo = this.dataSource.getRepository(Tenant);
+      const tenants = await tenantRepo.find();
+      if (tenants.length === 0) {
+        return;
+      }
+
+      const unlimitedOverrides = {
+        maxUsers: -1,
+        maxCustomers: -1,
+        maxSuppliers: -1,
+        maxBankAccounts: -1,
+        monthly: { maxInvoices: -1, maxExpenses: -1 },
+      };
+
+      let updated = 0;
+      for (const tenant of tenants) {
+        const currentSettings =
+          tenant.settings && typeof tenant.settings === 'object'
+            ? { ...tenant.settings }
+            : {};
+
+        const alreadyLocal =
+          currentSettings['isLocalMode'] === true &&
+          tenant.subscriptionPlan === SubscriptionPlan.ENTERPRISE &&
+          tenant.maxUsers === -1;
+
+        if (alreadyLocal) {
+          continue;
+        }
+
+        currentSettings['isLocalMode'] = true;
+        currentSettings['planOverrides'] = unlimitedOverrides;
+
+        tenant.settings = currentSettings;
+        tenant.subscriptionPlan = SubscriptionPlan.ENTERPRISE;
+        tenant.maxUsers = -1;
+        tenant.subscriptionExpiresAt = null;
+
+        await tenantRepo.save(tenant);
+        updated += 1;
+      }
+
+      if (updated > 0) {
+        this.logger.log(
+          `✅ Local mode: ${updated} mevcut tenant local/sınırsız lisansa yükseltildi`,
+        );
+      }
+    } catch (error) {
+      this.logger.warn(
+        `⚠️ Local tenant bootstrap skipped: ${this.getErrorMessage(error)}`,
+      );
     }
   }
 

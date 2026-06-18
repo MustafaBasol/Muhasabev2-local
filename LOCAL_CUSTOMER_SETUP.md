@@ -20,50 +20,71 @@ Performed once, ideally by whoever delivers the package to the customer:
    [Auto-Start Docker With Windows](#auto-start-docker-with-windows).
 3. Place this project folder on the customer's machine (extract the supplied ZIP
    or clone with Git).
-4. Create the desktop shortcuts by running, once, in PowerShell from the project
-   folder:
+4. Create the shortcuts by running, once, in PowerShell from the project folder:
 
    ```powershell
    .\install-local-shortcuts.ps1
    ```
 
-   This creates the desktop shortcuts and offers to enable Docker auto-start.
-   (You can also run `.\create-desktop-shortcuts.ps1` to only create shortcuts.)
+   This creates the shortcuts and offers to enable Docker auto-start.
+   (You can also run `.\create-customer-shortcuts.ps1` to only create
+   shortcuts. The older name `.\create-desktop-shortcuts.ps1` still works and
+   now produces the same single-icon layout.)
 
-After this, the customer uses only the desktop shortcuts. Node.js is not
-required; Docker builds and runs the frontend and backend.
+After this, the customer uses only the **“Comptario Local”** desktop icon.
+Node.js is not required; Docker builds and runs the frontend and backend.
 
-## Daily Usage (Customer — Shortcuts Only)
+All customer-facing shortcuts use the **Comptario application icon**
+(`assets\comptario.ico`) — never the Docker icon.
 
-The customer never needs to open a terminal. They use these desktop shortcuts:
+## Daily Usage (Customer — One Icon)
+
+The customer never needs to open a terminal. The desktop has a **single**
+shortcut:
 
 | Shortcut | What it does |
 | --- | --- |
-| **Comptario Local Başlat** | Starts everything and opens the app in the browser. |
-| **Comptario Local Aç** | Opens the already-running app in the browser. |
-| **Comptario Local Durdur** | Stops the app (data is preserved). |
-| **Comptario Local Yedek Al** | Creates a database backup in `local-backups`. |
-| **Comptario Local Geri Yükle** | Restores the most recent backup. |
-| **Comptario Local Güncelle** | Installs a newly delivered version (support use). Data is preserved. |
+| **Comptario Local** | Starts Docker if needed, starts the app, waits until healthy, and opens the browser. |
 
 Daily flow:
 
-1. Double-click **“Comptario Local Başlat”**.
+1. Double-click **“Comptario Local”**.
 2. Wait for the browser to open (the first start can take a few minutes).
 3. Use the app.
 
-The **Başlat** shortcut automatically checks whether Docker Desktop is running,
-starts it if needed, launches the containers, waits for the app to be healthy,
-and opens the browser. It is safe to run multiple times and never deletes data
-or overwrites `.env` files.
+This one shortcut automatically checks whether Docker Desktop is running, starts
+it if needed, launches the containers (`docker compose up -d` — it does **not**
+rebuild during normal daily use), waits for the app to be healthy, and opens the
+browser. It is safe to run multiple times and never deletes data or overwrites
+`.env` files.
+
+### Support / Advanced Tools (Start Menu)
+
+Backup, restore, update, and stop are **support/advanced** tools. They are not
+on the desktop; they live in the Start Menu so the customer desktop stays clean:
+
+**Start → Comptario Local → Support Tools**
+
+| Tool | What it does |
+| --- | --- |
+| **Uygulamayı Aç** | Opens the already-running app in the browser. |
+| **Yedek Al** | Creates a database backup in `local-backups`. |
+| **Geri Yükle** | Restores a backup. |
+| **Güncelle** | Installs a newly delivered version (data is preserved). |
+| **Durdur** | Stops the app (data is preserved). |
+| **Destek Menüsü** | A single window menu (`comptario-local-support.ps1`) offering all of the above. |
+
+To also place these support tools on the desktop (e.g. on a support machine),
+run `.\create-customer-shortcuts.ps1 -IncludeSupportShortcuts`.
 
 ## Updating to a New Version (Support)
 
-Daily users only ever click **“Comptario Local Başlat”**. When a new version of
-the package is delivered (files copied or installed over the existing folder),
-support should run the update step **once** after replacing the files:
+Daily users only ever click the **“Comptario Local”** desktop icon. When a new
+version of the package is delivered (files copied or installed over the existing
+folder), support should run the update step **once** after replacing the files:
 
-- Double-click **“Comptario Local Güncelle”**, or run from the project folder:
+- Use **Start → Comptario Local → Support Tools → “Güncelle”**, or run from the
+  project folder:
 
   ```powershell
   .\update-local-app.ps1
@@ -80,8 +101,8 @@ The update is data-safe by design:
 - It never touches the `local-backups` folder.
 
 If `.env.local` is missing, the update script refuses to run and asks support to
-complete the first-time setup via **“Comptario Local Başlat”** instead. Taking a
-backup with **“Comptario Local Yedek Al”** before a major update is recommended.
+complete the first-time setup via the **“Comptario Local”** icon instead. Taking
+a backup with **Support Tools → “Yedek Al”** before a major update is recommended.
 
 ## Advanced / Support: Manual Prerequisites
 
@@ -196,9 +217,8 @@ at sign-in. Two ways:
    shortcut in the current user's Startup folder. To undo it later, delete the
    `Docker Desktop.lnk` file from the Startup folder (Win+R → `shell:startup`).
 
-Even without auto-start, the **“Comptario Local Başlat”** shortcut will try to
-start Docker Desktop automatically, so the customer can still rely on a single
-click.
+Even without auto-start, the **“Comptario Local”** shortcut will try to start
+Docker Desktop automatically, so the customer can still rely on a single click.
 
 ## PowerShell Execution Policy
 

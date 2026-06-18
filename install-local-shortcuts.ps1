@@ -17,9 +17,10 @@ Write-Host ''
 Write-Host '   Comptario Local kurulum yardimcisi' -ForegroundColor White
 Write-Host ''
 
-# 1) Masaustu kisayollarini olustur
-Write-Host '==> Masaustu kisayollari olusturuluyor...' -ForegroundColor Cyan
-& (Join-Path $Root 'create-desktop-shortcuts.ps1')
+# 1) Musteri kisayollarini olustur
+#    Masaustunde tek "Comptario Local" simgesi; destek araclari Baslat menusunde.
+Write-Host '==> Kisayollar olusturuluyor (masaustu + Baslat menusu)...' -ForegroundColor Cyan
+& (Join-Path $Root 'create-customer-shortcuts.ps1')
 
 # 2) Docker'in otomatik baslamasi
 $enableAutostart = $StartDockerWithWindows
@@ -59,7 +60,7 @@ if ($enableAutostart) {
 
 Write-Host ''
 Write-Host 'Kurulum tamamlandi.' -ForegroundColor Green
-Write-Host 'Artik masaustundeki "Comptario Local Baslat" kisayolunu kullanabilirsiniz.' -ForegroundColor Green
+Write-Host 'Artik masaustundeki "Comptario Local" kisayolunu kullanabilirsiniz.' -ForegroundColor Green
 Write-Host ''
 if (-not $NoPrompt) {
     Read-Host 'Kapatmak icin Enter tusuna basin'

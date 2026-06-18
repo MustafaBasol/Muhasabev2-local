@@ -9,8 +9,13 @@ It is a plan only; no installer is built yet. The current delivery method
 
 - Customer runs **one** `ComptarioLocalSetup.exe`.
 - Files are copied to a stable location: **`C:\ComptarioLocal`**.
-- Desktop shortcuts are created automatically (Başlat, Aç, Durdur, Yedek Al,
-  Geri Yükle, Güncelle).
+- Exactly **one** desktop shortcut is created: **“Comptario Local”**.
+- Support tools (Yedek Al, Geri Yükle, Güncelle, Durdur, Aç, Destek Menüsü) are
+  placed under the Start Menu folder **“Comptario Local\Support Tools”**, not on
+  the desktop.
+- All customer-facing shortcuts use the **Comptario application icon**
+  (`{app}\assets\comptario.ico`). The installer must **never** create
+  Docker-icon shortcuts, and must **never** create six desktop shortcuts.
 - Docker-based architecture is unchanged. The installer does **not** replace
   Docker; it only lays down files and shortcuts.
 - No Git, Node.js, npm, VS Code, or PowerShell knowledge required from the
@@ -26,10 +31,14 @@ run locally, including:
 - `docker-compose.local.yml`, `Dockerfile.local`
 - Application source needed by the Docker build (frontend + `backend/`)
 - `.env.local.example`, `backend/.env.local.example`
-- Scripts: `launch-local-app.ps1/.bat`, `open-local-app.ps1/.bat`,
+- The Comptario icon: `assets/comptario.ico`
+- Scripts: `comptario-local.ps1/.bat` (main launcher),
+  `comptario-local-support.ps1/.bat` (support menu),
+  `create-customer-shortcuts.ps1`, `install-local-shortcuts.ps1`,
+  `launch-local-app.ps1/.bat`, `open-local-app.ps1/.bat`,
   `update-local-app.ps1/.bat`, `start-local.ps1`, `stop-local.ps1`,
-  `backup-local.ps1`, `restore-local.ps1`, `create-desktop-shortcuts.ps1`,
-  `install-local-shortcuts.ps1`
+  `backup-local.ps1`, `restore-local.ps1`, `create-desktop-shortcuts.ps1`
+  (compatibility shim that forwards to `create-customer-shortcuts.ps1`)
 - Docs: `LOCAL_CUSTOMER_SETUP.md`, `CUSTOMER_DAILY_USAGE.md`
 
 It should **exclude** developer-only files (`.git`, `node_modules`, build
@@ -60,20 +69,26 @@ OutputBaseFilename=ComptarioLocalSetup
 Compression=lzma2
 SolidCompression=yes
 WizardStyle=modern
+; Installer/uninstaller icon uses the Comptario brand mark.
+SetupIconFile=payload\assets\comptario.ico
 
 [Files]
 ; Copy the prepared payload. Exclusions keep secrets/data/dev files out.
+; The payload includes assets\comptario.ico, used for every customer shortcut.
 Source: "payload\*"; DestDir: "{app}"; Flags: recursesubdirs createallsubdirs ignoreversion
 
 [Tasks]
-Name: "desktopicons"; Description: "Masaüstü kısayolları oluştur"; Flags: checkedonce
+Name: "desktopicon"; Description: "Masaüstüne 'Comptario Local' kısayolu ekle"; Flags: checkedonce
 Name: "dockerautostart"; Description: "Docker Desktop'ı Windows ile başlat"; Flags: unchecked
 
 [Run]
-; Create the five desktop shortcuts by reusing the existing PowerShell script.
+; Create the single "Comptario Local" desktop icon AND the Start Menu folder
+; (Comptario Local\Support Tools) by reusing the PowerShell script. The script
+; applies assets\comptario.ico to every shortcut and never uses the Docker icon.
+; Do NOT pass -IncludeSupportShortcuts here: support tools stay in the Start Menu.
 Filename: "powershell.exe"; \
-  Parameters: "-NoProfile -ExecutionPolicy Bypass -File ""{app}\create-desktop-shortcuts.ps1"""; \
-  WorkingDir: "{app}"; Flags: runhidden; Tasks: desktopicons
+  Parameters: "-NoProfile -ExecutionPolicy Bypass -File ""{app}\create-customer-shortcuts.ps1"""; \
+  WorkingDir: "{app}"; Flags: runhidden; Tasks: desktopicon
 
 ; Optionally enable Docker auto-start (Startup-folder shortcut).
 Filename: "powershell.exe"; \
@@ -86,11 +101,12 @@ Filename: "powershell.exe"; \
 ; Docker and are never touched by this installer.
 ```
 
-> Note: `create-desktop-shortcuts.ps1` builds shortcuts on the **current user's**
-> desktop using `[Environment]::GetFolderPath('Desktop')`. When run elevated by
-> the installer this resolves to the elevated user; if that differs from the
-> end user, pass `-DesktopPath` explicitly or run the shortcut step
-> non-elevated. Validate this during installer testing.
+> Note: `create-customer-shortcuts.ps1` builds shortcuts on the **current user's**
+> desktop and Start Menu using `[Environment]::GetFolderPath('Desktop')` /
+> `('Programs')`. When run elevated by the installer this resolves to the
+> elevated user; if that differs from the end user, pass `-DesktopPath` /
+> `-StartMenuPath` explicitly or run the shortcut step non-elevated. Validate
+> this during installer testing.
 
 ## Upgrade & Data-Safety Rules
 

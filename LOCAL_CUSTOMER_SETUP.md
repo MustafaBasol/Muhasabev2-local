@@ -11,6 +11,13 @@ available to other computers on the local network by default.
 
 ## One-Time Installation
 
+> **Easiest path: the installer.** If you were given
+> `ComptarioLocalSetup.exe`, just install Docker Desktop and run that — it copies
+> the files to `C:\ComptarioLocal` and creates the single **“Comptario Local”**
+> desktop icon plus the Start Menu **Support Tools** folder for you. See
+> [CUSTOMER_INSTALL_GUIDE.md](./CUSTOMER_INSTALL_GUIDE.md). The manual steps below
+> are the alternative ZIP-based method and are still fully supported.
+
 Performed once, ideally by whoever delivers the package to the customer:
 
 1. **Install Docker Desktop for Windows.** This is required only once. Download

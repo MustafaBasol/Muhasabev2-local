@@ -4,6 +4,10 @@ Bu kılavuz teknik bilgi gerektirmez. Tek yapmanız gereken masaüstündeki
 **tek bir simgeye** tıklamaktır. PowerShell, komut yazma veya Docker komutları
 **gerekmez.**
 
+> İlk kez mi kuruyorsunuz? Önce [CUSTOMER_INSTALL_GUIDE.md](./CUSTOMER_INSTALL_GUIDE.md)
+> kılavuzunu izleyin (Docker Desktop + `ComptarioLocalSetup.exe`). Kurulum
+> bitince bu kılavuza dönün.
+
 ---
 
 ## 🟢 Uygulamayı Kullanma (Günlük)

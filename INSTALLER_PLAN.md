@@ -1,9 +1,16 @@
 # Installer Plan (Inno Setup) — Comptario Local
 
-This document describes how the local/on-premise package can later be turned
-into a single-click Windows installer using [Inno Setup](https://jrsoftware.org/isinfo.php).
-It is a plan only; no installer is built yet. The current delivery method
-(extract ZIP + run `install-local-shortcuts.ps1`) keeps working until then.
+> **Status: implemented.** The installer described here now exists. See:
+> - `installer/ComptarioLocal.iss` — the Inno Setup script
+> - `build-installer.ps1` — stages the payload and compiles the installer
+> - `INSTALLER_BUILD.md` — how to build/test (for the packager)
+> - `CUSTOMER_INSTALL_GUIDE.md` — Turkish customer install guide
+>
+> This document remains the design/rationale reference. The older delivery
+> method (extract ZIP + run `install-local-shortcuts.ps1`) also keeps working.
+
+This document describes how the local/on-premise package is turned into a
+single-click Windows installer using [Inno Setup](https://jrsoftware.org/isinfo.php).
 
 ## Goals
 
@@ -56,57 +63,47 @@ or silently install it. Instead:
   continue (the `Başlat` shortcut already explains this if Docker is absent).
 - Optionally offer to enable Docker auto-start (see below).
 
-## Inno Setup Script Sketch
+## Inno Setup Script — key design decisions
 
-```ini
-[Setup]
-AppName=Comptario Local
-AppVersion=1.0.0
-DefaultDirName=C:\ComptarioLocal
-DisableProgramGroupPage=yes
-PrivilegesRequired=admin            ; needed to write under C:\
-OutputBaseFilename=ComptarioLocalSetup
-Compression=lzma2
-SolidCompression=yes
-WizardStyle=modern
-; Installer/uninstaller icon uses the Comptario brand mark.
-SetupIconFile=payload\assets\comptario.ico
+The full, authoritative script is `installer/ComptarioLocal.iss`. The notable
+choices it makes:
 
-[Files]
-; Copy the prepared payload. Exclusions keep secrets/data/dev files out.
-; The payload includes assets\comptario.ico, used for every customer shortcut.
-Source: "payload\*"; DestDir: "{app}"; Flags: recursesubdirs createallsubdirs ignoreversion
-
-[Tasks]
-Name: "desktopicon"; Description: "Masaüstüne 'Comptario Local' kısayolu ekle"; Flags: checkedonce
-Name: "dockerautostart"; Description: "Docker Desktop'ı Windows ile başlat"; Flags: unchecked
-
-[Run]
-; Create the single "Comptario Local" desktop icon AND the Start Menu folder
-; (Comptario Local\Support Tools) by reusing the PowerShell script. The script
-; applies assets\comptario.ico to every shortcut and never uses the Docker icon.
-; Do NOT pass -IncludeSupportShortcuts here: support tools stay in the Start Menu.
-Filename: "powershell.exe"; \
-  Parameters: "-NoProfile -ExecutionPolicy Bypass -File ""{app}\create-customer-shortcuts.ps1"""; \
-  WorkingDir: "{app}"; Flags: runhidden; Tasks: desktopicon
-
-; Optionally enable Docker auto-start (Startup-folder shortcut).
-Filename: "powershell.exe"; \
-  Parameters: "-NoProfile -ExecutionPolicy Bypass -File ""{app}\install-local-shortcuts.ps1"" -StartDockerWithWindows -NoPrompt"; \
-  WorkingDir: "{app}"; Flags: runhidden; Tasks: dockerautostart
-
-[UninstallDelete]
-; IMPORTANT: do NOT delete user data on uninstall.
-; Leave local-backups and .env.local in place. Docker volumes are managed by
-; Docker and are never touched by this installer.
-```
-
-> Note: `create-customer-shortcuts.ps1` builds shortcuts on the **current user's**
-> desktop and Start Menu using `[Environment]::GetFolderPath('Desktop')` /
-> `('Programs')`. When run elevated by the installer this resolves to the
-> elevated user; if that differs from the end user, pass `-DesktopPath` /
-> `-StartMenuPath` explicitly or run the shortcut step non-elevated. Validate
-> this during installer testing.
+- **`DefaultDirName=C:\ComptarioLocal`**, `PrivilegesRequired=admin` (writing
+  under `C:\` needs elevation), stable `AppId` so re-running the installer
+  upgrades in place. `SetupIconFile`/`UninstallDisplayIcon` use
+  `assets\comptario.ico`.
+- **`[Files]`** copies `payload\*` with `ignoreversion`. Because the staged
+  payload contains no `.env.local`, no `local-backups`, and no `*.dump`, an
+  upgrade physically cannot overwrite customer env files or delete backups.
+- **Shortcuts are created natively in `[Icons]`** (not via
+  `create-customer-shortcuts.ps1`). This is deliberate: under an elevated
+  install, the PowerShell script's `GetFolderPath('Desktop')` would resolve to
+  the *elevated* account, not the logged-in user. Inno's `{autodesktop}` /
+  `{group}` resolve correctly under elevation. Every icon sets
+  `IconFilename={app}\assets\comptario.ico` — never the Docker icon. The
+  `create-customer-shortcuts.ps1` script remains the path used by the
+  ZIP + `install-local-shortcuts.ps1` install method.
+  - Desktop: one icon, `Comptario Local` (task `desktopicon`, checked by default).
+  - `{group}\Comptario Local` plus `{group}\Support Tools\…` (Uygulamayı Aç,
+    Yedek Al, Geri Yükle, Güncelle, Durdur, Destek Menüsü). The PowerShell-backed
+    entries keep their window open with a trailing `Read-Host`.
+- **`[Run]` — permissions:** an `icacls` step grants the built-in **Users** group
+  (`*S-1-5-32-545`) `(OI)(CI)M` (Modify) on `{app}`, so the customer can run
+  backup/update scripts (which write `.env.local`, `local-backups`) without being
+  an admin.
+- **`[Run]` — optional steps:** an *unchecked* `dockerautostart` task wires Docker
+  Desktop into the Startup folder via `install-local-shortcuts.ps1`; an *unchecked*
+  post-install checkbox can run `update-local-app.ps1 -NoPause` (rebuild) — left
+  unchecked because daily use never needs a rebuild; a *checked* post-install
+  checkbox launches `comptario-local.bat`.
+- **`[Code]` — Docker prerequisite:** `InitializeSetup` checks for
+  `C:\Program Files\Docker\Docker\Docker Desktop.exe`; if missing it shows the
+  Turkish "Docker Desktop gereklidir" warning and still allows the install to
+  continue. Docker Desktop is never bundled.
+- **Uninstall data safety:** there is intentionally **no `[UninstallDelete]`**
+  removing data. Uninstall removes only the installed program files and
+  shortcuts; runtime-created `.env.local`, `local-backups`, and Docker volumes
+  are left untouched. Fully purging data is a separate manual support action.
 
 ## Upgrade & Data-Safety Rules
 
@@ -140,11 +137,16 @@ Filename: "powershell.exe"; \
   (Docker volumes + backups) is intentionally preserved; document how to fully
   purge data manually for customers who request it.
 
-## Build Steps (Future)
+## Build Steps
 
-1. Stage a clean `payload\` folder (export from Git, strip dev/secret files).
-2. Install Inno Setup, create `ComptarioLocal.iss` from the sketch above.
-3. Compile to `ComptarioLocalSetup.exe`.
-4. Test on a clean Windows VM: install → first `Başlat` → verify the app opens
-   at <http://localhost:3000>, then test backup/restore/stop shortcuts.
+These are implemented by `build-installer.ps1`; see `INSTALLER_BUILD.md` for the
+full procedure.
+
+1. `build-installer.ps1` stages a clean `installer\payload\` (via `robocopy`,
+   stripping dev/secret/data files) and audits it.
+2. It locates Inno Setup (`ISCC.exe`) and compiles `installer\ComptarioLocal.iss`.
+3. Output: `dist-installer\ComptarioLocalSetup.exe`.
+4. Test on a clean Windows VM: install → first launch → verify the app opens at
+   <http://localhost:3000>, then test backup/restore/stop shortcuts and an
+   upgrade-over-the-top (env files + `local-backups` must survive).
 5. Sign the installer (code-signing certificate) to reduce SmartScreen warnings.

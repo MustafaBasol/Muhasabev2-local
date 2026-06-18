@@ -9,9 +9,11 @@ param(
 # ============================================================================
 #  build-installer.ps1 - Comptario Local kurulum dosyasini olusturur.
 # ----------------------------------------------------------------------------
-#  1) installer\payload klasorunu temiz bir sekilde hazirlar (dev/secret/veri
-#     dosyalarini haric tutar).
-#  2) Payload icerigini denetler (.env.local, node_modules, .git, .dump YOK).
+#  1) installer\payload klasorunu KESIN BIR IZIN LISTESI (allowlist) ile
+#     hazirlar. Repo'nun tamami kopyalanmaz; yalnizca Docker yerel paketinin
+#     calismasi/yeniden derlenmesi icin gereken dosya ve klasorler kopyalanir.
+#  2) Payload icerigini denetler (.env.local, node_modules, .git, .claude,
+#     .devcontainer, .docker-local-runtime, *.dump, tmp-*, vb. YOK).
 #  3) Inno Setup derleyicisini (ISCC.exe) bulur.
 #  4) installer\ComptarioLocal.iss dosyasini derler.
 #  5) Ciktiyi yazar: dist-installer\ComptarioLocalSetup.exe
@@ -38,57 +40,135 @@ if (-not (Test-Path -LiteralPath $IssFile)) {
 }
 
 # ----------------------------------------------------------------------------
-# 1) Payload'u temiz hazirla
+# 1) Payload'u ALLOWLIST ile temiz hazirla (repo'nun tamami DEGIL)
 # ----------------------------------------------------------------------------
-Write-Step 'Payload klasoru hazirlaniyor (temiz)...'
+Write-Step 'Payload klasoru hazirlaniyor (allowlist, temiz)...'
 if (Test-Path -LiteralPath $PayloadDir) {
     Remove-Item -LiteralPath $PayloadDir -Recurse -Force
 }
 New-Item -ItemType Directory -Path $PayloadDir -Force | Out-Null
 
-# robocopy ile kopyala. Haric tutulan klasorler ve dosyalar asagida.
-# /XD: dizinleri haric tut, /XF: dosyalari haric tut.
-$excludeDirs = @(
-    (Join-Path $Root '.git')
-    (Join-Path $Root 'installer')      # kendi cikti/payload klasorumuz (rekursiyonu onler)
-    (Join-Path $Root 'dist-installer')
-    (Join-Path $Root 'local-backups')
-    '.codegraph'                        # ada gore (src\.codegraph, backend\src\.codegraph dahil)
-    'node_modules'                      # ada gore (root + backend)
-    'node_modules.partial'
-    '.npm-cache-local'
-    'dist'                              # ada gore (root dist + backend\dist)
-)
-$excludeFiles = @(
-    '.env'                              # gercek kok secret (varsa) - paketlenmez
-    '.env.local'                        # musteri secret - asla paketlenmez
-    '*.dump'                            # yedekler
-    '*.log'
-    '*.zip'
-    '*.sql'
+# Kok dizinde, var ise tek tek kopyalanacak dosyalar (Docker yerel paketi ve
+# musteri betikleri/dokumanlari icin gerekenler ile sinirli).
+$rootFiles = @(
+    'docker-compose.local.yml'
+    'Dockerfile.local'
+    '.dockerignore'
+    '.env.local.example'
+    'package.json'
+    'package-lock.json'
+    'index.html'
+    'vite.config.ts'
+    'vite.config.production.ts'
+    'tsconfig.json'
+    'tsconfig.app.json'
+    'tsconfig.node.json'
+    'tailwind.config.js'
+    'postcss.config.js'
+    'comptario-local.ps1'
+    'comptario-local.bat'
+    'comptario-local-support.ps1'
+    'comptario-local-support.bat'
+    'launch-local-app.ps1'
+    'launch-local-app.bat'
+    'open-local-app.ps1'
+    'open-local-app.bat'
+    'start-local.ps1'
+    'stop-local.ps1'
+    'backup-local.ps1'
+    'restore-local.ps1'
+    'update-local-app.ps1'
+    'update-local-app.bat'
+    'create-customer-shortcuts.ps1'
+    'create-desktop-shortcuts.ps1'
+    'install-local-shortcuts.ps1'
+    'CUSTOMER_INSTALL_GUIDE.md'
+    'CUSTOMER_DAILY_USAGE.md'
+    'LOCAL_CUSTOMER_SETUP.md'
+    'LOCAL_TECHNICAL_NOTES.md'
+    'INSTALLER_BUILD.md'
 )
 
-$roboArgs = @($Root, $PayloadDir, '/E', '/NFL', '/NDL', '/NJH', '/NJS', '/NP', '/R:1', '/W:1')
-$roboArgs += '/XD'; $roboArgs += $excludeDirs
-$roboArgs += '/XF'; $roboArgs += $excludeFiles
-
-& robocopy.exe @roboArgs | Out-Null
-# robocopy: 0-7 basari, >=8 hata.
-if ($LASTEXITCODE -ge 8) {
-    throw "robocopy payload kopyalama sirasinda hata verdi (kod $LASTEXITCODE)."
+foreach ($rel in $rootFiles) {
+    $src = Join-Path $Root $rel
+    if (Test-Path -LiteralPath $src -PathType Leaf) {
+        $dst = Join-Path $PayloadDir $rel
+        New-Item -ItemType Directory -Path (Split-Path -Parent $dst) -Force | Out-Null
+        Copy-Item -LiteralPath $src -Destination $dst -Force
+    }
 }
-$global:LASTEXITCODE = 0
-Write-Ok 'Payload kopyalandi.'
+
+# Comptario uygulama simgesi: assets klasorunun TAMAMI degil, yalnizca ikon.
+$iconSrc = Join-Path $Root 'assets\comptario.ico'
+if (Test-Path -LiteralPath $iconSrc -PathType Leaf) {
+    New-Item -ItemType Directory -Path (Join-Path $PayloadDir 'assets') -Force | Out-Null
+    Copy-Item -LiteralPath $iconSrc -Destination (Join-Path $PayloadDir 'assets\comptario.ico') -Force
+}
+
+# Bir klasoru robocopy ile, dahili dev/secret/uretilmis alt klasorleri haric
+# tutarak kopyalayan yardimci fonksiyon.
+function Copy-AllowedDir {
+    param(
+        [string]$RelSource,
+        [string]$RelDest = $RelSource,
+        [string[]]$ExtraExcludeDirs = @()
+    )
+    $src = Join-Path $Root $RelSource
+    if (-not (Test-Path -LiteralPath $src -PathType Container)) { return }
+    $dst = Join-Path $PayloadDir $RelDest
+    New-Item -ItemType Directory -Path $dst -Force | Out-Null
+    $excludeDirs = @('.git', '.codegraph', '.claude', '.devcontainer', '.docker-local-runtime',
+                      '.vscode', '.idea', 'node_modules', 'node_modules.partial',
+                      '.npm-cache-local', 'dist') + $ExtraExcludeDirs
+    $excludeFiles = @('.env', '.env.local', '*.dump', '*.log', '*.zip', '*.sql',
+                       'tmp-*', '*.tsbuildinfo', 'profile.csv', 'user_data.json')
+    $roboArgs = @($src, $dst, '/E', '/NFL', '/NDL', '/NJH', '/NJS', '/NP', '/R:1', '/W:1')
+    $roboArgs += '/XD'; $roboArgs += $excludeDirs
+    $roboArgs += '/XF'; $roboArgs += $excludeFiles
+    & robocopy.exe @roboArgs | Out-Null
+    if ($LASTEXITCODE -ge 8) {
+        throw "robocopy '$RelSource' kopyalama sirasinda hata verdi (kod $LASTEXITCODE)."
+    }
+    $global:LASTEXITCODE = 0
+}
+
+# Frontend kaynaklari (Docker build context icin gerekli).
+Copy-AllowedDir -RelSource 'src'
+Copy-AllowedDir -RelSource 'public'
+
+# Backend: SADECE Docker build/runtime icin gereken alt kume.
+# (backend/node_modules, backend/dist, backend/.env*, backend/backups,
+#  backend/test, backend/*.db ve gelistirme betikleri kopyalanmaz.)
+$backendDst = Join-Path $PayloadDir 'backend'
+New-Item -ItemType Directory -Path $backendDst -Force | Out-Null
+
+$backendRootFiles = @('package.json', 'package-lock.json', 'nest-cli.json', '.env.local.example')
+foreach ($rel in $backendRootFiles) {
+    $src = Join-Path $Root "backend\$rel"
+    if (Test-Path -LiteralPath $src -PathType Leaf) {
+        Copy-Item -LiteralPath $src -Destination (Join-Path $backendDst $rel) -Force
+    }
+}
+Get-ChildItem -LiteralPath (Join-Path $Root 'backend') -Filter 'tsconfig*.json' -File -ErrorAction SilentlyContinue |
+    ForEach-Object { Copy-Item -LiteralPath $_.FullName -Destination (Join-Path $backendDst $_.Name) -Force }
+
+Copy-AllowedDir -RelSource 'backend\src' -RelDest 'backend\src'
+# backend/public/assets is build-generated (copied from the frontend build at
+# Docker build time) - excluded here so the payload stays minimal and never
+# ships stale generated assets.
+Copy-AllowedDir -RelSource 'backend\public' -RelDest 'backend\public' -ExtraExcludeDirs @('assets')
+
+Write-Ok 'Payload kopyalandi (allowlist).'
 
 # ----------------------------------------------------------------------------
 # 2) Payload denetimi - yasak icerik olmamali
 # ----------------------------------------------------------------------------
-Write-Step 'Payload denetleniyor (yasak dosyalar)...'
+Write-Step 'Payload denetleniyor (yasak dosyalar/klasorler)...'
 $problems = @()
 
-function Test-Forbidden {
-    param([string]$Label, [scriptblock]$Finder)
-    $hits = & $Finder
+function Test-ForbiddenDir {
+    param([string]$Label, [string]$Name)
+    $hits = Get-ChildItem -LiteralPath $PayloadDir -Recurse -Directory -Force -Filter $Name -ErrorAction SilentlyContinue
     if ($hits) {
         foreach ($h in $hits) { $script:problems += "$Label -> $($h.FullName)" }
     } else {
@@ -96,12 +176,41 @@ function Test-Forbidden {
     }
 }
 
-Test-Forbidden '.env.local'         { Get-ChildItem -LiteralPath $PayloadDir -Recurse -File -Force -Filter '.env.local' -ErrorAction SilentlyContinue }
-Test-Forbidden 'node_modules'       { Get-ChildItem -LiteralPath $PayloadDir -Recurse -Directory -Force -Filter 'node_modules' -ErrorAction SilentlyContinue }
-Test-Forbidden '.git'               { Get-ChildItem -LiteralPath $PayloadDir -Recurse -Directory -Force -Filter '.git' -ErrorAction SilentlyContinue }
-Test-Forbidden '.codegraph'         { Get-ChildItem -LiteralPath $PayloadDir -Recurse -Directory -Force -Filter '.codegraph' -ErrorAction SilentlyContinue }
-Test-Forbidden 'yedek (*.dump)'     { Get-ChildItem -LiteralPath $PayloadDir -Recurse -File -Force -Filter '*.dump' -ErrorAction SilentlyContinue }
-Test-Forbidden 'local-backups'      { Get-ChildItem -LiteralPath $PayloadDir -Recurse -Directory -Force -Filter 'local-backups' -ErrorAction SilentlyContinue }
+function Test-ForbiddenFile {
+    param([string]$Label, [string]$Filter)
+    $hits = Get-ChildItem -LiteralPath $PayloadDir -Recurse -File -Force -Filter $Filter -ErrorAction SilentlyContinue
+    if ($hits) {
+        foreach ($h in $hits) { $script:problems += "$Label -> $($h.FullName)" }
+    } else {
+        Write-Ok "Yok: $Label"
+    }
+}
+
+Test-ForbiddenDir  '.docker-local-runtime' '.docker-local-runtime'
+Test-ForbiddenDir  '.git'                  '.git'
+Test-ForbiddenDir  '.claude'                '.claude'
+Test-ForbiddenDir  '.devcontainer'          '.devcontainer'
+Test-ForbiddenDir  '.codegraph'             '.codegraph'
+Test-ForbiddenDir  'node_modules'           'node_modules'
+Test-ForbiddenDir  'dist-installer'         'dist-installer'
+Test-ForbiddenFile '.env.local'             '.env.local'
+Test-ForbiddenFile '.env'                   '.env'
+Test-ForbiddenFile 'yedek (*.dump)'         '*.dump'
+Test-ForbiddenFile 'tmp-*'                  'tmp-*'
+Test-ForbiddenFile '*.tsbuildinfo'          '*.tsbuildinfo'
+Test-ForbiddenFile 'profile.csv'            'profile.csv'
+Test-ForbiddenFile 'user_data.json'         'user_data.json'
+
+# installer\payload kendi icine ic ice paketlenmis olmamali.
+$nestedPayload = Join-Path $PayloadDir 'installer\payload'
+if (Test-Path -LiteralPath $nestedPayload) {
+    $problems += "installer\payload payload icinde ic ice -> $nestedPayload"
+} else {
+    Write-Ok 'Yok: installer\payload (ic ice)'
+}
+
+# local-backups payload icinde olmamali (musteri verisi).
+Test-ForbiddenDir 'local-backups' 'local-backups'
 
 # Docker'in yeniden insa icin ihtiyac duydugu cekirdek dosyalar mevcut mu?
 $required = @(
@@ -132,6 +241,31 @@ if ($problems.Count -gt 0) {
     Write-Ok 'Payload denetimi temiz.'
 }
 
+# ----------------------------------------------------------------------------
+# 2b) Payload ozeti
+# ----------------------------------------------------------------------------
+Write-Step 'Payload ozeti hazirlaniyor...'
+$allFiles = Get-ChildItem -LiteralPath $PayloadDir -Recurse -File -Force
+$totalSize = ($allFiles | Measure-Object -Property Length -Sum).Sum
+$totalSizeMb = [Math]::Round($totalSize / 1MB, 1)
+$topLevel = Get-ChildItem -LiteralPath $PayloadDir -Force | Select-Object -ExpandProperty Name | Sort-Object
+
+Write-Ok "Toplam boyut: $totalSizeMb MB"
+Write-Ok "Toplam dosya sayisi: $($allFiles.Count)"
+Write-Ok "Ust seviye ogeler: $($topLevel -join ', ')"
+
+# Kaynakta (repo) bulunan ama bilerek payload'a kopyalanmayan tehlikeli yollar.
+$dangerousNames = @('.git', '.codegraph', '.claude', '.devcontainer', '.docker-local-runtime',
+                     'node_modules', 'dist-installer', 'local-backups')
+$foundButExcluded = @()
+foreach ($name in $dangerousNames) {
+    $hit = Get-ChildItem -LiteralPath $Root -Force -Filter $name -ErrorAction SilentlyContinue | Select-Object -First 1
+    if ($hit) { $foundButExcluded += $name }
+}
+if ($foundButExcluded.Count -gt 0) {
+    Write-Note "Kaynakta mevcut ama payload'a kopyalanmayan: $($foundButExcluded -join ', ')"
+}
+
 if ($StageOnly) {
     Write-Host ''
     Write-Ok "Payload hazir: $PayloadDir"
@@ -145,7 +279,8 @@ if ($StageOnly) {
 Write-Step 'Inno Setup derleyicisi (ISCC.exe) araniyor...'
 $isccCandidates = @(
     'C:\Program Files (x86)\Inno Setup 6\ISCC.exe',
-    'C:\Program Files\Inno Setup 6\ISCC.exe'
+    'C:\Program Files\Inno Setup 6\ISCC.exe',
+    (Join-Path $env:LOCALAPPDATA 'Programs\Inno Setup 6\ISCC.exe')
 )
 $iscc = $isccCandidates | Where-Object { Test-Path -LiteralPath $_ } | Select-Object -First 1
 if (-not $iscc) {

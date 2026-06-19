@@ -19,6 +19,8 @@ Set-Location $Root
 $AppUrl = 'http://localhost:3000'
 $HealthUrl = 'http://localhost:3000/api/health'
 $DockerDesktopPath = 'C:\Program Files\Docker\Docker\Docker Desktop.exe'
+$DockerDownloadUrl = 'https://www.docker.com/products/docker-desktop/'
+$WingetDockerCommand = 'winget install --id Docker.DockerDesktop -e --accept-package-agreements --accept-source-agreements'
 
 function Write-Step    { param([string]$Message) Write-Host "==> $Message" -ForegroundColor Cyan }
 function Write-Ok      { param([string]$Message) Write-Host "    $Message" -ForegroundColor Green }
@@ -42,7 +44,61 @@ function Stop-WithMessage {
     Write-Host '------------------------------------------------------------' -ForegroundColor Red
     Write-Host ''
     Write-Host 'Bu pencereyi kapatabilirsiniz.' -ForegroundColor Gray
-    Read-Host 'Devam etmek için Enter tuşuna basın'
+    Read-Host 'Devam etmek icin Enter tusuna basin'
+    exit 1
+}
+
+function Show-DockerMissingHelp {
+    $wingetAvailable = $null -ne (Get-Command 'winget.exe' -ErrorAction SilentlyContinue)
+
+    Write-Host ''
+    Write-Host '------------------------------------------------------------' -ForegroundColor Red
+    Write-Host 'Docker Desktop bu bilgisayarda bulunamadi.' -ForegroundColor Red
+    Write-Host '------------------------------------------------------------' -ForegroundColor Red
+    Write-Host ''
+    Write-Host 'Comptario Local calismadan once Docker Desktop bir kez kurulmalidir.'
+    Write-Host "Indirme adresi: $DockerDownloadUrl"
+    Write-Host ''
+    Write-Host '[D] Docker Desktop indirme sayfasini ac' -ForegroundColor Cyan
+    if ($wingetAvailable) {
+        Write-Host '[W] Docker Desktop kurulumunu winget ile baslat' -ForegroundColor Cyan
+        Write-Host ''
+        Write-Host 'Winget komutu:' -ForegroundColor Yellow
+        Write-Host "  $WingetDockerCommand" -ForegroundColor Yellow
+    }
+    Write-Host '[Enter] Pencereyi kapat' -ForegroundColor Gray
+    Write-Host ''
+    Write-Note 'Kurulum yonetici onayi isteyebilir. Kurulumdan sonra Windows yeniden baslatilabilir.'
+
+    $choice = (Read-Host 'Seciminiz').Trim().ToUpperInvariant()
+    if ($choice -eq 'D') {
+        try {
+            Start-Process $DockerDownloadUrl
+            Write-Ok 'Docker Desktop indirme sayfasi tarayicida acildi.'
+        } catch {
+            Write-Note "Tarayici acilamadi. Adresi elle acin: $DockerDownloadUrl"
+        }
+    } elseif ($choice -eq 'W' -and $wingetAvailable) {
+        Write-Host ''
+        Write-Note 'Docker Desktop kurulumu yonetici onayi isteyebilir ve Windows yeniden baslatma gerektirebilir.'
+        $confirm = (Read-Host 'Winget kurulumunu baslatmak icin E yazin').Trim().ToUpperInvariant()
+        if ($confirm -eq 'E') {
+            & winget.exe install --id Docker.DockerDesktop -e --accept-package-agreements --accept-source-agreements
+            if ($LASTEXITCODE -eq 0) {
+                Write-Ok 'Winget islemi tamamlandi.'
+            } else {
+                Write-Note "Winget islemi tamamlanamadi (cikis kodu: $LASTEXITCODE)."
+                Write-Note "Docker Desktop'i su adresten elle kurabilirsiniz: $DockerDownloadUrl"
+            }
+        } else {
+            Write-Note 'Winget kurulumu iptal edildi.'
+        }
+    }
+
+    Write-Host ''
+    Write-Host "Docker Desktop kurulduktan sonra gerekirse Windows'u yeniden baslatin." -ForegroundColor Yellow
+    Write-Host "Ardindan 'Comptario Local' kisayoluna tekrar tiklayin." -ForegroundColor Yellow
+    Read-Host 'Pencereyi kapatmak icin Enter tusuna basin'
     exit 1
 }
 
@@ -56,15 +112,7 @@ if (Test-DockerEngine) {
     Write-Ok 'Docker zaten calisiyor.'
 } else {
     if (-not (Test-Path -LiteralPath $DockerDesktopPath)) {
-        Stop-WithMessage @"
-Docker Desktop bu bilgisayarda bulunamadi.
-
-Beklenen konum:
-  $DockerDesktopPath
-
-Lutfen Docker Desktop'i bir kez kurun (https://www.docker.com/products/docker-desktop)
-ve ardindan 'Comptario Local' kisayoluna tekrar tiklayin.
-"@
+        Show-DockerMissingHelp
     }
 
     Write-Note 'Docker calismiyor. Docker Desktop baslatiliyor (bu islem birkac dakika surebilir)...'
@@ -146,7 +194,7 @@ for ($attempt = 1; $attempt -le $maxAttempts; $attempt++) {
             break
         }
     } catch {
-        # Henuz hazir degil — beklemeye devam et
+        # Henuz hazir degil - beklemeye devam et
     }
     if ($attempt -lt $maxAttempts) {
         Start-Sleep -Seconds $pollIntervalSec

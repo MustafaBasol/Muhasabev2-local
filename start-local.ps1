@@ -97,7 +97,7 @@ for ($attempt = 1; $attempt -le $maxAttempts; $attempt++) {
             break
         }
     } catch {
-        # Container not ready yet — keep waiting
+        # Container not ready yet - keep waiting
     }
     if ($attempt -lt $maxAttempts) {
         Start-Sleep -Seconds $pollIntervalSec

@@ -6,7 +6,7 @@ param(
 )
 
 # Comptario Local Guncelle
-# Yeni bir surum mevcut kuruluma kopyalandiginda/kurulduğunda kullanilir.
+# Yeni bir surum mevcut kuruluma kopyalandiginda/kuruldugunda kullanilir.
 # Uygulamayi guvenli sekilde yeniden insa edip baslatir.
 # MUSTERI VERILERINI SILMEZ:
 #   - Docker volume'lari silinmez.
@@ -45,7 +45,7 @@ function Stop-WithMessage {
     Write-Host ''
     Write-Host 'Bu pencereyi kapatabilirsiniz.' -ForegroundColor Gray
     if (-not $NoPause) {
-        Read-Host 'Devam etmek için Enter tuşuna basın'
+        Read-Host 'Devam etmek icin Enter tusuna basin'
     }
     exit 1
 }
@@ -155,7 +155,7 @@ for ($attempt = 1; $attempt -le $maxAttempts; $attempt++) {
             break
         }
     } catch {
-        # Henuz hazir degil — beklemeye devam et
+        # Henuz hazir degil - beklemeye devam et
     }
     if ($attempt -lt $maxAttempts) {
         Start-Sleep -Seconds $pollIntervalSec
@@ -183,5 +183,5 @@ Start-Process $AppUrl
 Write-Host ''
 Write-Host 'Comptario Local guncellendi ve calisiyor. Bu pencereyi kapatabilirsiniz.' -ForegroundColor Green
 if (-not $NoPause) {
-    Read-Host 'Kapatmak için Enter tuşuna basın'
+    Read-Host 'Kapatmak icin Enter tusuna basin'
 }

@@ -146,7 +146,9 @@ begin
     MsgBox('Bu uygulamanın çalışması için Docker Desktop gereklidir.' + #13#10 + #13#10 +
            'Kuruluma devam edebilirsiniz, ancak uygulamayı çalıştırmadan önce ' +
            'Docker Desktop kurulmalıdır.' + #13#10 + #13#10 +
-           'İndirme adresi: https://www.docker.com/products/docker-desktop',
+           'Comptario Local başlatıcısı indirme sayfasını açmanıza yardımcı olur.' + #13#10 +
+           'Docker kurulumundan sonra Windows''u yeniden başlatmanız gerekebilir.' + #13#10 + #13#10 +
+           'İndirme adresi: https://www.docker.com/products/docker-desktop/',
            mbInformation, MB_OK);
   end;
 end;

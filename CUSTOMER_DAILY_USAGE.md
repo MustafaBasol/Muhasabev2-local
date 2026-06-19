@@ -8,6 +8,11 @@ Bu kılavuz teknik bilgi gerektirmez. Tek yapmanız gereken masaüstündeki
 > kılavuzunu izleyin (Docker Desktop + `ComptarioLocalSetup.exe`). Kurulum
 > bitince bu kılavuza dönün.
 
+> **Önemli:** Docker Desktop bilgisayara bir kez ayrıca kurulmalıdır; Comptario
+> Local kurulum dosyasına dahil değildir. Docker eksikse başlatıcı indirme
+> sayfasını açmayı teklif eder. Kurulumdan sonra Windows'u yeniden başlatmanız
+> gerekebilir; ardından **Comptario Local** simgesine yeniden tıklayın.
+
 ---
 
 ## 🟢 Uygulamayı Kullanma (Günlük)
@@ -118,9 +123,12 @@ Sırayla deneyin:
 2. Ekranın sağ alt köşesinde **Docker (balina 🐳) simgesini** kontrol edin.
    Üzerine gelince **“Docker Desktop is running”** yazmalıdır. Çalışmıyorsa
    Docker Desktop’ın açılmasını bekleyin.
-3. Bilgisayarı **yeniden başlatın** ve tekrar **“Comptario Local”** simgesine
+3. Docker Desktop kurulu değilse, başlatıcıdaki **D** seçeneğine basarak
+   indirme sayfasını açın ve Docker Desktop'ı kurun.
+4. Docker kurulumundan sonra bilgisayarı **yeniden başlatın** ve tekrar
+   **“Comptario Local”** simgesine
    tıklayın.
-4. Hâlâ açılmıyorsa **destek ekibiyle** iletişime geçin.
+5. Hâlâ açılmıyorsa **destek ekibiyle** iletişime geçin.
 
 > Sorun yaşasanız bile verileriniz silinmez. Simgelere tıklamak verilerinizi
 > tehlikeye atmaz.

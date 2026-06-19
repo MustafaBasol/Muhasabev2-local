@@ -17,11 +17,21 @@ available to other computers on the local network by default.
 > desktop icon plus the Start Menu **Support Tools** folder for you. See
 > [CUSTOMER_INSTALL_GUIDE.md](./CUSTOMER_INSTALL_GUIDE.md). The manual steps below
 > are the alternative ZIP-based method and are still fully supported.
+>
+> Docker Desktop remains an external prerequisite. It is not bundled or
+> silently installed by the Comptario installer. If it is missing, installation
+> may continue and the launcher can open the official Docker Desktop download
+> page. After Docker installation, Windows may need to be restarted; then click
+> **Comptario Local** again.
 
 Performed once, ideally by whoever delivers the package to the customer:
 
 1. **Install Docker Desktop for Windows.** This is required only once. Download
    it from <https://www.docker.com/products/docker-desktop>.
+   If the customer launches Comptario Local before installing Docker, the
+   launcher offers to open this page. When `winget` is available, it also shows
+   an explicitly confirmed installation option. Administrator approval and a
+   Windows restart may be required.
 2. (Recommended) Set Docker Desktop to start automatically with Windows so the
    customer never has to start it manually. See
    [Auto-Start Docker With Windows](#auto-start-docker-with-windows).

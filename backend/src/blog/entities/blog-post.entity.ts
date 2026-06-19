@@ -6,28 +6,7 @@ import {
   UpdateDateColumn,
   Index,
 } from 'typeorm';
-
-const driverHint = (
-  process.env.TEST_DB ||
-  process.env.TEST_DATABASE ||
-  process.env.TEST_DATABASE_TYPE ||
-  process.env.DB_TYPE ||
-  process.env.DATABASE_CLIENT ||
-  process.env.TYPEORM_CONNECTION ||
-  process.env.TYPEORM_DRIVER ||
-  ''
-).toLowerCase();
-
-const isSqliteHint = ['sqlite', 'better-sqlite3'].includes(driverHint);
-
-const __sqliteFriendlyEnv =
-  isSqliteHint ||
-  (!driverHint &&
-    (process.env.DB_SQLITE === 'true' ||
-      process.env.NODE_ENV === 'test' ||
-      typeof process.env.JEST_WORKER_ID !== 'undefined'));
-
-const timestamptzColumnType = __sqliteFriendlyEnv ? 'datetime' : 'timestamptz';
+import { timestampWithTimeZoneColumnType } from '../../database/database-driver';
 
 export enum BlogPostStatus {
   DRAFT = 'draft',
@@ -105,7 +84,7 @@ export class BlogPost {
   })
   status: BlogPostStatus;
 
-  @Column({ type: timestamptzColumnType, nullable: true })
+  @Column({ type: timestampWithTimeZoneColumnType(), nullable: true })
   publishedAt?: Date | null;
 
   @CreateDateColumn()

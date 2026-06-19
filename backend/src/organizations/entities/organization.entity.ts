@@ -9,10 +9,7 @@ import {
 import { OrganizationMember } from './organization-member.entity';
 import { Invite } from './invite.entity';
 import { Plan } from '../../common/enums/organization.enum';
-
-const __isTestEnv =
-  process.env.NODE_ENV === 'test' ||
-  typeof process.env.JEST_WORKER_ID !== 'undefined';
+import { enumColumnType } from '../../database/database-driver';
 
 @Entity('organizations')
 export class Organization {
@@ -23,8 +20,8 @@ export class Organization {
   name: string;
 
   @Column({
-    type: __isTestEnv ? 'text' : 'enum',
-    enum: __isTestEnv ? undefined : Plan,
+    type: enumColumnType(),
+    enum: Plan,
     default: Plan.STARTER,
   })
   plan: Plan;

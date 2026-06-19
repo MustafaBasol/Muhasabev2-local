@@ -4,6 +4,7 @@ import {
   Column,
   UpdateDateColumn,
 } from 'typeorm';
+import { jsonColumnType } from '../../database/database-driver';
 
 @Entity('admin_config')
 export class AdminConfig {
@@ -22,7 +23,7 @@ export class AdminConfig {
   @Column({ type: 'varchar', length: 255, nullable: true })
   twoFactorSecret: string | null;
 
-  @Column({ type: 'jsonb', nullable: true })
+  @Column({ type: jsonColumnType(), nullable: true })
   recoveryCodes: string[] | null;
 
   @UpdateDateColumn()

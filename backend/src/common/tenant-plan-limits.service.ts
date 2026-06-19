@@ -1,4 +1,5 @@
 import { SubscriptionPlan, Tenant } from '../tenants/entities/tenant.entity';
+import { isNativeLocalEdition } from '../database/database-driver';
 
 // Merkezi plan limitleri: Tenant bazlı kısıtlar
 export interface TenantPlanLimits {
@@ -84,7 +85,10 @@ export class TenantPlanLimitService {
   // LOCAL_MODE: on-premise/local kurulumda tüm plan limitleri global olarak devre dışıdır.
   // Hangi metoda hangi yoldan gelinirse gelinsin sınırsız kabul edilir.
   static isLocalModeEnv(): boolean {
-    return String(process.env.LOCAL_MODE).trim().toLowerCase() === 'true';
+    return (
+      isNativeLocalEdition() ||
+      String(process.env.LOCAL_MODE).trim().toLowerCase() === 'true'
+    );
   }
 
   static getLimits(plan: SubscriptionPlan): TenantPlanLimits {

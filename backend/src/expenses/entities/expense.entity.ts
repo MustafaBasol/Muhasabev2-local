@@ -10,10 +10,11 @@ import {
 import { Tenant } from '../../tenants/entities/tenant.entity';
 import { Supplier } from '../../suppliers/entities/supplier.entity';
 import { User } from '../../users/entities/user.entity';
-
-const __isTestEnv =
-  process.env.NODE_ENV === 'test' ||
-  typeof process.env.JEST_WORKER_ID !== 'undefined';
+import {
+  enumColumnType,
+  timestampColumnType,
+  uuidColumnType,
+} from '../../database/database-driver';
 
 export enum ExpenseCategory {
   OTHER = 'other',
@@ -44,14 +45,14 @@ export class Expense {
   @Column()
   expenseNumber: string;
 
-  @Column({ type: 'uuid' })
+  @Column({ type: uuidColumnType() })
   tenantId: string;
 
   @ManyToOne(() => Tenant)
   @JoinColumn({ name: 'tenantId' })
   tenant: Tenant;
 
-  @Column({ type: 'uuid', nullable: true })
+  @Column({ type: uuidColumnType(), nullable: true })
   supplierId: string | null;
 
   @ManyToOne(() => Supplier, { nullable: true })
@@ -68,15 +69,15 @@ export class Expense {
   amount: number;
 
   @Column({
-    type: __isTestEnv ? 'text' : 'enum',
-    enum: __isTestEnv ? undefined : ExpenseCategory,
+    type: enumColumnType(),
+    enum: ExpenseCategory,
     default: ExpenseCategory.OTHER,
   })
   category: ExpenseCategory;
 
   @Column({
-    type: __isTestEnv ? 'text' : 'enum',
-    enum: __isTestEnv ? undefined : ExpenseStatus,
+    type: enumColumnType(),
+    enum: ExpenseStatus,
     default: ExpenseStatus.PENDING,
   })
   status: ExpenseStatus;
@@ -96,12 +97,12 @@ export class Expense {
 
   @Column({
     name: 'voided_at',
-    type: __isTestEnv ? 'datetime' : 'timestamp',
+    type: timestampColumnType(),
     nullable: true,
   })
   voidedAt: Date | null;
 
-  @Column({ name: 'voided_by', type: 'uuid', nullable: true })
+  @Column({ name: 'voided_by', type: uuidColumnType(), nullable: true })
   voidedBy: string | null;
 
   @ManyToOne(() => User, { nullable: true })
@@ -115,7 +116,7 @@ export class Expense {
   updatedAt: Date;
 
   // Attribution
-  @Column({ type: 'uuid', nullable: true })
+  @Column({ type: uuidColumnType(), nullable: true })
   createdById: string | null;
 
   @ManyToOne(() => User, { nullable: true, onDelete: 'SET NULL' })
@@ -125,7 +126,7 @@ export class Expense {
   @Column({ type: 'varchar', length: 255, nullable: true })
   createdByName: string | null;
 
-  @Column({ type: 'uuid', nullable: true })
+  @Column({ type: uuidColumnType(), nullable: true })
   updatedById: string | null;
 
   @ManyToOne(() => User, { nullable: true, onDelete: 'SET NULL' })

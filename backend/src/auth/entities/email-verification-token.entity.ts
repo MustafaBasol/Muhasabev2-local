@@ -8,17 +8,17 @@ import {
   Index,
 } from 'typeorm';
 import { User } from '../../users/entities/user.entity';
-
-const __isTestEnv =
-  process.env.NODE_ENV === 'test' ||
-  typeof process.env.JEST_WORKER_ID !== 'undefined';
+import {
+  timestampColumnType,
+  uuidColumnType,
+} from '../../database/database-driver';
 
 @Entity('email_verification_tokens')
 export class EmailVerificationToken {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
-  @Column({ type: 'uuid' })
+  @Column({ type: uuidColumnType() })
   @Index('idx_evt_user_id')
   userId: string;
 
@@ -34,10 +34,10 @@ export class EmailVerificationToken {
   @Index('idx_evt_expires_at')
   expiresAt: Date;
 
-  @Column({ type: __isTestEnv ? 'datetime' : 'timestamp', nullable: true })
+  @Column({ type: timestampColumnType(), nullable: true })
   usedAt: Date | null;
 
-  @CreateDateColumn({ type: __isTestEnv ? 'datetime' : 'timestamp' })
+  @CreateDateColumn({ type: timestampColumnType() })
   createdAt: Date;
 
   @Column({ type: 'varchar', length: 45, nullable: true })

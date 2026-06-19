@@ -7,6 +7,7 @@ import { CreateQuoteDto } from './dto/create-quote.dto';
 import { UpdateQuoteDto } from './dto/update-quote.dto';
 import { Tenant } from '../tenants/entities/tenant.entity';
 import { BankAccount } from '../bank-accounts/entities/bank-account.entity';
+import { isPostgresDatabase } from '../database/database-driver';
 
 type QuoteWithPublicProfile = Quote & {
   tenantPublicProfile?: TenantPublicProfile;
@@ -151,7 +152,9 @@ export class QuotesService {
     if (!id) return null;
     try {
       const rowsUnknown: unknown = await this.repo.query(
-        'SELECT 1 FROM customers WHERE id = $1 LIMIT 1',
+        isPostgresDatabase()
+          ? 'SELECT 1 FROM customers WHERE id = $1 LIMIT 1'
+          : 'SELECT 1 FROM customers WHERE id = ? LIMIT 1',
         [id],
       );
       const hasRow = Array.isArray(rowsUnknown) && rowsUnknown.length > 0;
@@ -222,7 +225,8 @@ export class QuotesService {
     // publicId'yi her denemede yeniden üretmek yerine tek sefer üretelim
     // DB'de pgcrypto/gen_random_uuid() yoksa bile güvenli bir UUID üretelim
     let generatedPublicId: string | undefined = randomUUID();
-    try {
+    if (isPostgresDatabase()) {
+      try {
       const uuidRowsUnknown: unknown = await this.repo.query(
         'SELECT gen_random_uuid() as id',
       );
@@ -232,8 +236,9 @@ export class QuotesService {
           generatedPublicId = first.id;
         }
       }
-    } catch (error) {
-      this.logWarning('quotes.generatePublicId.queryFailed', error);
+      } catch (error) {
+        this.logWarning('quotes.generatePublicId.queryFailed', error);
+      }
       // pgcrypto yoksa DB sorgusu patlayabilir; Node tarafında ürettiğimiz UUID ile devam et.
     }
     let lastTriedQuoteNumber: string | undefined;

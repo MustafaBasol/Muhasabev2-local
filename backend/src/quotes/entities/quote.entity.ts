@@ -10,10 +10,11 @@ import {
 import { Tenant } from '../../tenants/entities/tenant.entity';
 import { Customer } from '../../customers/entities/customer.entity';
 import { User } from '../../users/entities/user.entity';
-
-const __isTestEnv =
-  process.env.NODE_ENV === 'test' ||
-  typeof process.env.JEST_WORKER_ID !== 'undefined';
+import {
+  enumColumnType,
+  jsonColumnType,
+  uuidColumnType,
+} from '../../database/database-driver';
 
 export enum QuoteStatus {
   DRAFT = 'draft',
@@ -30,7 +31,7 @@ export class Quote {
   id: string;
 
   // Public paylaşım için rastgele token (UUID)
-  @Column({ type: 'uuid', unique: true })
+  @Column({ type: uuidColumnType(), unique: true })
   publicId: string;
 
   // Public link görüntüleme dili (örn: 'en', 'tr'); linki paylaşan kullanıcının o anki dili
@@ -40,14 +41,14 @@ export class Quote {
   @Column({ type: 'varchar', length: 32, unique: true })
   quoteNumber: string;
 
-  @Column({ type: 'uuid' })
+  @Column({ type: uuidColumnType() })
   tenantId: string;
 
   @ManyToOne(() => Tenant, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'tenantId' })
   tenant: Tenant;
 
-  @Column({ type: 'uuid', nullable: true })
+  @Column({ type: uuidColumnType(), nullable: true })
   customerId: string | null;
 
   @ManyToOne(() => Customer, { nullable: true, onDelete: 'SET NULL' })
@@ -71,13 +72,13 @@ export class Quote {
   total: number;
 
   @Column({
-    type: __isTestEnv ? 'text' : 'enum',
-    enum: __isTestEnv ? undefined : QuoteStatus,
+    type: enumColumnType(),
+    enum: QuoteStatus,
     default: QuoteStatus.DRAFT,
   })
   status: QuoteStatus;
 
-  @Column({ type: __isTestEnv ? 'simple-json' : 'jsonb', nullable: true })
+  @Column({ type: jsonColumnType(), nullable: true })
   items: any[] | null;
 
   // İşin kapsamı (zengin metin HTML)
@@ -89,7 +90,7 @@ export class Quote {
   version: number;
 
   // Revizyon geçmişi (snapshot listesi)
-  @Column({ type: __isTestEnv ? 'simple-json' : 'jsonb', nullable: true })
+  @Column({ type: jsonColumnType(), nullable: true })
   revisions: any[] | null;
 
   @CreateDateColumn()
@@ -99,7 +100,7 @@ export class Quote {
   updatedAt: Date;
 
   // Attribution
-  @Column({ type: 'uuid', nullable: true })
+  @Column({ type: uuidColumnType(), nullable: true })
   createdById: string | null;
 
   @ManyToOne(() => User, { nullable: true, onDelete: 'SET NULL' })
@@ -109,7 +110,7 @@ export class Quote {
   @Column({ type: 'varchar', length: 255, nullable: true })
   createdByName: string | null;
 
-  @Column({ type: 'uuid', nullable: true })
+  @Column({ type: uuidColumnType(), nullable: true })
   updatedById: string | null;
 
   @ManyToOne(() => User, { nullable: true, onDelete: 'SET NULL' })

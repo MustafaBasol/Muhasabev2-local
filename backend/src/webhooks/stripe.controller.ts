@@ -3,6 +3,7 @@ import { SkipThrottle } from '@nestjs/throttler';
 import type { Request, Response } from 'express';
 import Stripe from 'stripe';
 import { BillingService } from '../billing/billing.service';
+import { isNativeLocalEdition } from '../database/database-driver';
 
 type RequestWithRawBody = Request & {
   rawBody?: Buffer | string;
@@ -20,6 +21,7 @@ export class StripeWebhookController {
     const stripeEnabled =
       String(process.env.STRIPE_ENABLED ?? 'true').trim().toLowerCase() !==
         'false' &&
+      !isNativeLocalEdition() &&
       String(process.env.LOCAL_MODE).trim().toLowerCase() !== 'true' &&
       Boolean(apiKey);
     if (stripeEnabled) {

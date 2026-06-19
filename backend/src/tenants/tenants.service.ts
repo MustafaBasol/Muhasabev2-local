@@ -10,6 +10,7 @@ import {
 import { ProductCategory } from '../products/entities/product-category.entity';
 import { AuditService } from '../audit/audit.service';
 import { AuditAction } from '../audit/entities/audit-log.entity';
+import { isNativeLocalEdition } from '../database/database-driver';
 
 export interface CreateTenantDto {
   name: string;
@@ -143,6 +144,7 @@ export class TenantsService {
     const slug = await this.generateUniqueSlug(uniqueName);
 
     const isLocalMode =
+      isNativeLocalEdition() ||
       String(process.env.LOCAL_MODE).trim().toLowerCase() === 'true';
 
     const localModeSettings = isLocalMode

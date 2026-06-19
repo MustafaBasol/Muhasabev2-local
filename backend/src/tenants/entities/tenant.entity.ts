@@ -7,28 +7,7 @@ import {
   OneToMany,
 } from 'typeorm';
 import { User } from '../../users/entities/user.entity';
-
-const driverHint = (
-  process.env.TEST_DB ||
-  process.env.TEST_DATABASE ||
-  process.env.TEST_DATABASE_TYPE ||
-  process.env.DB_TYPE ||
-  process.env.DATABASE_CLIENT ||
-  process.env.TYPEORM_CONNECTION ||
-  process.env.TYPEORM_DRIVER ||
-  ''
-).toLowerCase();
-
-const isSqliteHint = ['sqlite', 'better-sqlite3'].includes(driverHint);
-
-const __sqliteFriendlyEnv =
-  isSqliteHint ||
-  (!driverHint &&
-    (process.env.DB_SQLITE === 'true' ||
-      process.env.NODE_ENV === 'test' ||
-      typeof process.env.JEST_WORKER_ID !== 'undefined'));
-
-const timestampColumnType = __sqliteFriendlyEnv ? 'datetime' : 'timestamp';
+import { timestampColumnType } from '../../database/database-driver';
 
 export enum SubscriptionPlan {
   FREE = 'free',
@@ -235,7 +214,7 @@ export class Tenant {
   })
   status: TenantStatus;
 
-  @Column({ nullable: true, type: timestampColumnType })
+  @Column({ nullable: true, type: timestampColumnType() })
   subscriptionExpiresAt: Date | null;
 
   // Dönem sonunda iptal isteği (true ise abonelik mevcut dönem bitimine kadar aktif kalır, yenilenmez)
@@ -262,7 +241,7 @@ export class Tenant {
 
   // Plan düşürme uyarı/uygulama akışı için alanlar
   @Column({
-    type: timestampColumnType,
+    type: timestampColumnType(),
     nullable: true,
     comment: 'Plan düşürme için son tarih',
   })

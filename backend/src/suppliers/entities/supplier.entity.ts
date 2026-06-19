@@ -9,6 +9,7 @@ import {
 } from 'typeorm';
 import { Tenant } from '../../tenants/entities/tenant.entity';
 import { User } from '../../users/entities/user.entity';
+import { uuidColumnType } from '../../database/database-driver';
 
 @Entity('suppliers')
 export class Supplier {
@@ -50,7 +51,7 @@ export class Supplier {
   updatedAt: Date;
 
   // Attribution
-  @Column({ type: 'uuid', nullable: true })
+  @Column({ type: uuidColumnType(), nullable: true })
   createdById: string | null;
 
   @ManyToOne(() => User, { nullable: true, onDelete: 'SET NULL' })
@@ -60,7 +61,7 @@ export class Supplier {
   @Column({ type: 'varchar', length: 255, nullable: true })
   createdByName: string | null;
 
-  @Column({ type: 'uuid', nullable: true })
+  @Column({ type: uuidColumnType(), nullable: true })
   updatedById: string | null;
 
   @ManyToOne(() => User, { nullable: true, onDelete: 'SET NULL' })

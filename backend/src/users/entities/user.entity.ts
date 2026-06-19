@@ -9,28 +9,11 @@ import {
 } from 'typeorm';
 import { Tenant } from '../../tenants/entities/tenant.entity';
 import { Organization } from '../../organizations/entities/organization.entity';
-
-const driverHint = (
-  process.env.TEST_DB ||
-  process.env.TEST_DATABASE ||
-  process.env.TEST_DATABASE_TYPE ||
-  process.env.DB_TYPE ||
-  process.env.DATABASE_CLIENT ||
-  process.env.TYPEORM_CONNECTION ||
-  process.env.TYPEORM_DRIVER ||
-  ''
-).toLowerCase();
-
-const isSqliteHint = ['sqlite', 'better-sqlite3'].includes(driverHint);
-
-const __sqliteFriendlyEnv =
-  isSqliteHint ||
-  (!driverHint &&
-    (process.env.DB_SQLITE === 'true' ||
-      process.env.NODE_ENV === 'test' ||
-      typeof process.env.JEST_WORKER_ID !== 'undefined'));
-
-const timestamptzColumnType = __sqliteFriendlyEnv ? 'datetime' : 'timestamptz';
+import {
+  isSqliteDatabase,
+  timestampWithTimeZoneColumnType,
+  uuidColumnType,
+} from '../../database/database-driver';
 
 export enum UserRole {
   SUPER_ADMIN = 'super_admin',
@@ -90,8 +73,8 @@ export class User {
 
   @Column({
     name: 'twoFactorBackupCodes',
-    type: 'text',
-    array: true,
+    type: isSqliteDatabase() ? 'simple-json' : 'text',
+    array: !isSqliteDatabase(),
     nullable: true,
   })
   backupCodes: string[];
@@ -109,17 +92,17 @@ export class User {
   @Column({ nullable: true, type: 'varchar' })
   emailVerificationToken?: string | null;
 
-  @Column({ nullable: true, type: timestamptzColumnType })
+  @Column({ nullable: true, type: timestampWithTimeZoneColumnType() })
   emailVerificationSentAt?: Date | null;
 
-  @Column({ nullable: true, type: timestamptzColumnType })
+  @Column({ nullable: true, type: timestampWithTimeZoneColumnType() })
   emailVerifiedAt?: Date | null;
 
   // Password reset fields
   @Column({ nullable: true, type: 'varchar' })
   passwordResetToken: string | null;
 
-  @Column({ nullable: true, type: timestamptzColumnType })
+  @Column({ nullable: true, type: timestampWithTimeZoneColumnType() })
   passwordResetExpiresAt: Date | null;
 
   @ManyToOne(() => Tenant, (tenant) => tenant.users, { onDelete: 'CASCADE' })
@@ -130,23 +113,23 @@ export class User {
   tenantId: string;
 
   // Current organization ID for session context
-  @Column({ type: 'uuid', nullable: true })
+  @Column({ type: uuidColumnType(), nullable: true })
   currentOrgId?: string | null;
 
   @ManyToOne(() => Organization, { nullable: true })
   @JoinColumn({ name: 'currentOrgId' })
   currentOrganization: Organization;
 
-  @Column({ type: timestamptzColumnType, nullable: true })
+  @Column({ type: timestampWithTimeZoneColumnType(), nullable: true })
   removedFromTenantAt?: Date | null;
 
-  @Column({ type: 'uuid', nullable: true })
+  @Column({ type: uuidColumnType(), nullable: true })
   removedFromTenantBy?: string | null;
 
   @Column({ type: 'varchar', nullable: true })
   removedFromTenantReason?: string | null;
 
-  @Column({ type: 'uuid', nullable: true })
+  @Column({ type: uuidColumnType(), nullable: true })
   removedFromTenantId?: string | null;
 
   @CreateDateColumn()

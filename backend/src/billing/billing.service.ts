@@ -14,6 +14,7 @@ import {
   SubscriptionPlan,
   TenantStatus,
 } from '../tenants/entities/tenant.entity';
+import { isNativeLocalEdition } from '../database/database-driver';
 
 type Interval = 'month' | 'year';
 
@@ -74,6 +75,7 @@ export class BillingService {
     const stripeEnabled =
       String(process.env.STRIPE_ENABLED ?? 'true').trim().toLowerCase() !==
         'false' &&
+      !isNativeLocalEdition() &&
       String(process.env.LOCAL_MODE).trim().toLowerCase() !== 'true' &&
       Boolean(apiKey);
     if (!stripeEnabled) {

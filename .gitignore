@@ -111,6 +111,7 @@ local-backups/*
 node_modules.partial/
 backend/node_modules.partial/
 backend/.npm-cache-local/
+backend/.tmp-native/
 .pg-baseline/
 .pg-baseline.log
 .docker-local-runtime/

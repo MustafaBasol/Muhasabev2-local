@@ -7,6 +7,10 @@ import {
   SubscriptionPlan,
   Tenant,
 } from '../tenants/entities/tenant.entity';
+import {
+  isNativeLocalEdition,
+  isPostgresDatabase,
+} from './database-driver';
 
 @Injectable()
 export class SeedService {
@@ -22,7 +26,10 @@ export class SeedService {
       // Şema uyumluluğunu sağla (idempotent düzeltmeler)
       await this.ensureSchemaCompatibility();
 
-      if (String(process.env.LOCAL_MODE).trim().toLowerCase() === 'true') {
+      if (
+        isNativeLocalEdition() ||
+        String(process.env.LOCAL_MODE).trim().toLowerCase() === 'true'
+      ) {
         // Mevcut (fix öncesi oluşturulmuş) tenant'ları local/sınırsız olarak işaretle
         await this.bootstrapLocalTenants();
         this.logger.log(
@@ -125,6 +132,10 @@ export class SeedService {
   }
 
   private async ensureSchemaCompatibility() {
+    if (!isPostgresDatabase()) {
+      return;
+    }
+
     try {
       // Tenants tablosundaki yeni alanlar için güvenli (idempotent) eklemeler
       await this.dataSource.query(`

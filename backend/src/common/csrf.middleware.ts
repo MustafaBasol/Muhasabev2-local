@@ -1,6 +1,7 @@
 import { Injectable, NestMiddleware } from '@nestjs/common';
 import { Request, Response, NextFunction } from 'express';
 import * as crypto from 'crypto';
+import { isNativeLocalEdition } from '../database/database-driver';
 
 interface CSRFTokenStore {
   [sessionId: string]: {
@@ -84,6 +85,7 @@ export class CSRFMiddleware implements NestMiddleware {
   private shouldEnforceCSRF(): boolean {
     return (
       process.env.NODE_ENV === 'production' &&
+      !isNativeLocalEdition() &&
       String(process.env.LOCAL_MODE).trim().toLowerCase() !== 'true'
     );
   }
@@ -132,9 +134,11 @@ export class CSRFMiddleware implements NestMiddleware {
         httpOnly: true,
         secure:
           process.env.NODE_ENV === 'production' &&
+          !isNativeLocalEdition() &&
           String(process.env.LOCAL_MODE).trim().toLowerCase() !== 'true',
         sameSite:
           process.env.NODE_ENV === 'production' &&
+          !isNativeLocalEdition() &&
           String(process.env.LOCAL_MODE).trim().toLowerCase() !== 'true'
             ? 'strict'
             : 'lax',

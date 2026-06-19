@@ -23,6 +23,10 @@ import compression from 'compression';
 import type { CompressionOptions } from 'compression';
 import { randomBytes } from 'crypto';
 import { existsSync, mkdirSync } from 'fs';
+import {
+  isNativeLocalEdition,
+  isSqliteDatabase,
+} from './database/database-driver';
 
 type ResponseWithLocals = Response & { locals: Record<string, unknown> };
 type BodyParserError = Error & { type?: string };
@@ -79,6 +83,11 @@ const migrationTimestamp = (name?: string): number => {
 };
 
 const runPendingMigrations = async (dataSource: DataSource): Promise<void> => {
+  if (dataSource.options.type === 'sqlite') {
+    await dataSource.runMigrations();
+    return;
+  }
+
   const migrations = [...dataSource.migrations];
   const baseline = migrations.find(
     (migration) => migration.name === LOCAL_BASELINE_MIGRATION,
@@ -157,6 +166,7 @@ const cspNonceMiddleware: RequestHandler = (_req, res, next) => {
 
 const secureCookieMiddleware: RequestHandler = (_req, res, next) => {
   const isLocalMode =
+    isNativeLocalEdition() ||
     String(process.env.LOCAL_MODE).trim().toLowerCase() === 'true';
   const useSecureCookies =
     process.env.NODE_ENV === 'production' && !isLocalMode;
@@ -183,6 +193,7 @@ const secureCookieMiddleware: RequestHandler = (_req, res, next) => {
 async function bootstrap() {
   const isProd = process.env.NODE_ENV === 'production';
   const isLocalMode =
+    isNativeLocalEdition() ||
     String(process.env.LOCAL_MODE).trim().toLowerCase() === 'true';
   const app = await NestFactory.create<NestExpressApplication>(AppModule, {
     logger: isProd
@@ -249,6 +260,11 @@ async function bootstrap() {
     const dataSource: DataSource = app.get(DataSource);
     if (!dataSource.isInitialized) {
       await dataSource.initialize();
+    }
+    if (isSqliteDatabase()) {
+      await dataSource.query('PRAGMA journal_mode = WAL');
+      await dataSource.query('PRAGMA foreign_keys = ON');
+      await dataSource.query('PRAGMA busy_timeout = 5000');
     }
     const pendingMigrations = await dataSource.showMigrations(); // TypeORM'in showMigrations() sadece boolean döndürüyor (true -> pending var)
     if (pendingMigrations) {
@@ -426,7 +442,7 @@ async function bootstrap() {
       `ℹ️ PORT env tanımlı: ${process.env.PORT}. NODE_ENV='${process.env.NODE_ENV ?? ''}'. Dinlenecek port: ${port}.`,
     );
   }
-  const host = '0.0.0.0'; // Bu tüm interface'lerde dinlemeyi sağlar
+  const host = isNativeLocalEdition() ? '127.0.0.1' : '0.0.0.0';
 
   await app.listen(port, host);
 

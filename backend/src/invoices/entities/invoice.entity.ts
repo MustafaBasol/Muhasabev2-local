@@ -11,6 +11,12 @@ import { Tenant } from '../../tenants/entities/tenant.entity';
 import { Customer } from '../../customers/entities/customer.entity';
 import { User } from '../../users/entities/user.entity';
 import type { InvoiceLineItemInput } from '../dto/invoice.dto';
+import {
+  enumColumnType,
+  jsonColumnType,
+  timestampColumnType,
+  uuidColumnType,
+} from '../../database/database-driver';
 
 export enum InvoiceStatus {
   DRAFT = 'draft',
@@ -20,10 +26,6 @@ export enum InvoiceStatus {
   CANCELLED = 'cancelled',
 }
 
-const __isTestEnv =
-  process.env.NODE_ENV === 'test' ||
-  typeof process.env.JEST_WORKER_ID !== 'undefined';
-
 @Entity('invoices')
 export class Invoice {
   @PrimaryGeneratedColumn('uuid')
@@ -32,14 +34,14 @@ export class Invoice {
   @Column()
   invoiceNumber: string;
 
-  @Column({ type: 'uuid' })
+  @Column({ type: uuidColumnType() })
   tenantId: string;
 
   @ManyToOne(() => Tenant)
   @JoinColumn({ name: 'tenantId' })
   tenant: Tenant;
 
-  @Column({ type: 'uuid', nullable: true })
+  @Column({ type: uuidColumnType(), nullable: true })
   customerId: string | null;
 
   @ManyToOne(() => Customer, { nullable: true })
@@ -65,8 +67,8 @@ export class Invoice {
   total: number;
 
   @Column({
-    type: __isTestEnv ? 'text' : 'enum',
-    enum: __isTestEnv ? undefined : InvoiceStatus,
+    type: enumColumnType(),
+    enum: InvoiceStatus,
     default: InvoiceStatus.DRAFT,
   })
   status: InvoiceStatus;
@@ -80,14 +82,14 @@ export class Invoice {
   @Column({ type: 'varchar', nullable: true })
   type: string | null; // 'product', 'service', 'refund' (iade faturası)
 
-  @Column({ type: 'uuid', nullable: true })
+  @Column({ type: uuidColumnType(), nullable: true })
   refundedInvoiceId: string | null; // İade edilen orijinal fatura ID'si
 
   @ManyToOne(() => Invoice, { nullable: true })
   @JoinColumn({ name: 'refundedInvoiceId' })
   refundedInvoice: Invoice | null; // İade edilen orijinal fatura
 
-  @Column({ type: __isTestEnv ? 'simple-json' : 'jsonb', nullable: true })
+  @Column({ type: jsonColumnType(), nullable: true })
   items: InvoiceLineItemInput[] | null;
 
   // Soft delete columns
@@ -99,12 +101,12 @@ export class Invoice {
 
   @Column({
     name: 'voided_at',
-    type: __isTestEnv ? 'datetime' : 'timestamp',
+    type: timestampColumnType(),
     nullable: true,
   })
   voidedAt: Date | null;
 
-  @Column({ name: 'voided_by', type: 'uuid', nullable: true })
+  @Column({ name: 'voided_by', type: uuidColumnType(), nullable: true })
   voidedBy: string | null;
 
   @ManyToOne(() => User, { nullable: true })
@@ -118,7 +120,7 @@ export class Invoice {
   updatedAt: Date;
 
   // Attribution
-  @Column({ type: 'uuid', nullable: true })
+  @Column({ type: uuidColumnType(), nullable: true })
   createdById: string | null;
 
   @ManyToOne(() => User, { nullable: true, onDelete: 'SET NULL' })
@@ -128,7 +130,7 @@ export class Invoice {
   @Column({ type: 'varchar', length: 255, nullable: true })
   createdByName: string | null;
 
-  @Column({ type: 'uuid', nullable: true })
+  @Column({ type: uuidColumnType(), nullable: true })
   updatedById: string | null;
 
   @ManyToOne(() => User, { nullable: true, onDelete: 'SET NULL' })

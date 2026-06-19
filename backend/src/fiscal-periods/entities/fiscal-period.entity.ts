@@ -9,17 +9,17 @@ import {
 } from 'typeorm';
 import { Tenant } from '../../tenants/entities/tenant.entity';
 import { User } from '../../users/entities/user.entity';
-
-const __isTestEnv =
-  process.env.NODE_ENV === 'test' ||
-  typeof process.env.JEST_WORKER_ID !== 'undefined';
+import {
+  timestampColumnType,
+  uuidColumnType,
+} from '../../database/database-driver';
 
 @Entity('fiscal_periods')
 export class FiscalPeriod {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
-  @Column({ type: 'uuid' })
+  @Column({ type: uuidColumnType() })
   tenantId: string;
 
   @ManyToOne(() => Tenant)
@@ -38,10 +38,10 @@ export class FiscalPeriod {
   @Column({ type: 'boolean', default: false })
   isLocked: boolean;
 
-  @Column({ type: __isTestEnv ? 'datetime' : 'timestamp', nullable: true })
+  @Column({ type: timestampColumnType(), nullable: true })
   lockedAt: Date | null;
 
-  @Column({ type: 'uuid', nullable: true })
+  @Column({ type: uuidColumnType(), nullable: true })
   lockedBy: string | null;
 
   @ManyToOne(() => User, { nullable: true })

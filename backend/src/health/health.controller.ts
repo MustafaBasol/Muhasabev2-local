@@ -2,6 +2,11 @@ import { Controller, Get } from '@nestjs/common';
 import { DataSource } from 'typeorm';
 
 interface HealthStatus {
+  status: 'ok' | 'degraded';
+  appEdition: string;
+  databaseType: string;
+  databaseReachable: boolean;
+  version: string;
   appStatus: 'ok';
   dbStatus: 'ok' | 'error';
   dbLatencyMs?: number;
@@ -23,6 +28,11 @@ export class HealthController {
     }
     const latency = Date.now() - start;
     return {
+      status: dbStatus === 'ok' ? 'ok' : 'degraded',
+      appEdition: process.env.APP_EDITION || 'cloud',
+      databaseType: this.dataSource.options.type,
+      databaseReachable: dbStatus === 'ok',
+      version: process.env.APP_VERSION || '1.0.0',
       appStatus: 'ok',
       dbStatus,
       dbLatencyMs: latency,

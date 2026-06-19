@@ -45,7 +45,9 @@ import './database/patch-typeorm-for-tests';
   imports: [
     ServeStaticModule.forRoot({
       serveRoot: '/assets',
-      rootPath: join(process.cwd(), 'public', 'assets'),
+      rootPath:
+        process.env.NATIVE_ASSETS_DIR ||
+        join(process.cwd(), 'public', 'assets'),
     }),
     ServeStaticModule.forRoot({
       rootPath: join(process.cwd(), 'public', 'dist'),

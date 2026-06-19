@@ -64,6 +64,7 @@ describe('HealthController', () => {
         {
           provide: DataSource,
           useValue: {
+            options: { type: 'sqlite' },
             // Simulate successful query for latency measurement
             query: async () => {
               queryCalled = true;

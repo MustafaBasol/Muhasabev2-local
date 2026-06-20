@@ -10,6 +10,7 @@ dist-ssr
 /dist-installer/
 /installer/payload/
 /dist-native/
+/dist-native-installer/
 /.native-cache/
 
 # Environment variables

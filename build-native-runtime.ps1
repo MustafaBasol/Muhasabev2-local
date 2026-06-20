@@ -113,7 +113,7 @@ if (Test-Path -LiteralPath $OutputRoot) {
 New-Item -ItemType Directory -Path $BackendRuntime -Force | Out-Null
 New-Item -ItemType Directory -Path (Join-Path $BackendRuntime 'public\dist') -Force | Out-Null
 New-Item -ItemType Directory -Path (Join-Path $BackendRuntime 'config') -Force | Out-Null
-@('data', 'data\assets', 'data\assets\blog', 'logs', 'backups', 'config') |
+@('assets', 'data', 'data\assets', 'data\assets\blog', 'logs', 'backups', 'config') |
     ForEach-Object {
         New-Item -ItemType Directory -Path (Join-Path $RuntimeRoot $_) -Force | Out-Null
     }
@@ -194,6 +194,10 @@ $runtimeFiles = @(
     'backup-native.bat',
     'restore-native.ps1',
     'restore-native.bat',
+    'stop-native.ps1',
+    'stop-native.bat',
+    'comptario-native-support.ps1',
+    'comptario-native-support.bat',
     'native-runtime.env.example',
     'NATIVE_WINDOWS_RUNTIME.md',
     'NATIVE_LOCAL_SQLITE_PLAN.md'
@@ -205,7 +209,7 @@ foreach ($file in $runtimeFiles) {
     }
     Copy-Item -LiteralPath $source -Destination (Join-Path $RuntimeRoot $file) -Force
 }
-Copy-Item -LiteralPath (Join-Path $Root 'assets\comptario.ico') -Destination (Join-Path $RuntimeRoot 'comptario.ico') -Force
+Copy-Item -LiteralPath (Join-Path $Root 'assets\comptario.ico') -Destination (Join-Path $RuntimeRoot 'assets\comptario.ico') -Force
 
 Install-PrivateNode
 
@@ -244,7 +248,12 @@ $requiredFiles = @(
     'app\backend\node_modules\bcrypt',
     'comptario-native.bat',
     'comptario-native.ps1',
-    'run-native-backend.ps1'
+    'run-native-backend.ps1',
+    'stop-native.bat',
+    'stop-native.ps1',
+    'comptario-native-support.bat',
+    'comptario-native-support.ps1',
+    'assets\comptario.ico'
 )
 foreach ($rel in $requiredFiles) {
     if (-not (Test-Path -LiteralPath (Join-Path $RuntimeRoot $rel))) {

@@ -46,6 +46,7 @@ ComptarioLocalNative\
   app\backend\node_modules\
   app\backend\public\dist\
   app\backend\config\
+  assets\comptario.ico
   config\
   data\
   data\assets\
@@ -57,6 +58,10 @@ ComptarioLocalNative\
   backup-native.ps1
   restore-native.bat
   restore-native.ps1
+  stop-native.bat
+  stop-native.ps1
+  comptario-native-support.bat
+  comptario-native-support.ps1
 ```
 
 Only production backend dependencies are installed. Frontend files are
@@ -178,18 +183,30 @@ before changing anything. Restore order:
 `config\native-runtime.env` is never created, moved, or deleted by restore,
 so generated JWT/refresh/CSRF secrets survive a restore.
 
+## Stop
+
+Double-click `stop-native.bat`, or run `.\stop-native.ps1`. This stops the
+backend process tree and frees the SQLite file handle. All data, backups,
+logs, and `config\native-runtime.env` are preserved.
+
+## Support menu
+
+`comptario-native-support.bat` / `comptario-native-support.ps1` present a
+single-window menu for starting, backing up, restoring, and stopping the
+application - intended for support/admin use, not daily customer use.
+
 ## Current limitations
 
 - Intended for one Windows computer and one backend process.
 - No Windows service yet.
 - No automatic application update mechanism yet.
 - No PostgreSQL-to-SQLite migration utility yet.
-- The folder is not code-signed or wrapped in an installer.
+- The folder itself is not code-signed.
 
-## Later work
+## Installer
 
-Phase 4 covers the signed Windows installer, one desktop icon, upgrades,
-uninstall behavior, and clean-machine acceptance testing.
+See `NATIVE_INSTALLER_BUILD.md` for building `ComptarioLocalNativeSetup.exe`
+and `CUSTOMER_NATIVE_INSTALL_GUIDE.md` for the customer-facing install guide.
 
 The existing Docker/PostgreSQL package remains available as a support-managed
 technical fallback.

@@ -1,6 +1,5 @@
 [CmdletBinding()]
 param(
-    [Parameter(Mandatory = $true)]
     [string]$BackupPath,
     [switch]$Force
 )
@@ -130,6 +129,36 @@ function Start-NativeBackend {
         if ($health) { return $true }
     }
     return $false
+}
+
+# --- If no -BackupPath was given, let the customer pick one interactively ---
+if (-not $BackupPath) {
+    $available = Get-ChildItem -LiteralPath $BackupsDir -Filter '*.zip' -File -ErrorAction SilentlyContinue |
+        Sort-Object LastWriteTime -Descending
+    if (-not $available -or $available.Count -eq 0) {
+        Write-Note 'Geri yuklenecek yedek bulunamadi.'
+        return
+    }
+
+    Write-Host ''
+    Write-Step 'Mevcut yedekler:'
+    $index = 1
+    foreach ($item in $available) {
+        $sizeMb = [Math]::Round($item.Length / 1MB, 2)
+        Write-Host "  $index) $($item.Name)  Tarih: $($item.LastWriteTime)  Boyut: $sizeMb MB"
+        $index++
+    }
+    Write-Host ''
+    $selection = Read-Host "Geri yuklenecek yedegi secin (1-$($available.Count)) [varsayilan: 1]"
+    if (-not $selection -or $selection.Trim() -eq '') {
+        $selection = '1'
+    }
+    $selection = $selection.Trim()
+    if ($selection -notmatch '^\d+$' -or [int]$selection -lt 1 -or [int]$selection -gt $available.Count) {
+        Write-Note 'Gecersiz secim. Geri yukleme iptal edildi.'
+        return
+    }
+    $BackupPath = $available[[int]$selection - 1].FullName
 }
 
 # --- Resolve and validate the archive before touching any live data ---

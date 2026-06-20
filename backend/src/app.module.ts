@@ -43,11 +43,20 @@ import './database/patch-typeorm-for-tests';
 
 @Module({
   imports: [
+    // Blog yukleme klasoru (musteri verisi) /assets/blog altinda servis
+    // edilir; bu mount, genel /assets mount'undan ONCE gelmeli ki blog
+    // gorselleri data\assets\blog'dan okunabilsin (native-local).
+    ServeStaticModule.forRoot({
+      serveRoot: '/assets/blog',
+      rootPath:
+        process.env.BLOG_ASSETS_DIR ||
+        join(process.cwd(), 'public', 'assets', 'blog'),
+    }),
+    // Frontend derlemesinin hash'li dosyalari (index-*.js/css) burada
+    // servis edilir. Bu yol musteri verisiyle ASLA degistirilmemeli.
     ServeStaticModule.forRoot({
       serveRoot: '/assets',
-      rootPath:
-        process.env.NATIVE_ASSETS_DIR ||
-        join(process.cwd(), 'public', 'assets'),
+      rootPath: join(process.cwd(), 'public', 'assets'),
     }),
     ServeStaticModule.forRoot({
       rootPath: join(process.cwd(), 'public', 'dist'),

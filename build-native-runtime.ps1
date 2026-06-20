@@ -151,6 +151,24 @@ Copy-Item -LiteralPath (Join-Path $Root 'backend\config\retention.json') -Destin
 Get-ChildItem -LiteralPath (Join-Path $Root 'dist') -Force |
     Copy-Item -Destination (Join-Path $BackendRuntime 'public\dist') -Recurse -Force
 
+# Hash'li frontend dosyalari (index-*.js/css) /assets altinda servis edilir
+# (bkz. backend\src\app.module.ts). Docker kurulumuyla ayni duzen:
+# public\dist\assets icerigi public\assets'e kopyalanir; /assets musteri
+# verisiyle (data\assets) karistirilmaz.
+$distAssetsDir = Join-Path $Root 'dist\assets'
+$publicAssetsDir = Join-Path $BackendRuntime 'public\assets'
+New-Item -ItemType Directory -Path $publicAssetsDir -Force | Out-Null
+if (Test-Path -LiteralPath $distAssetsDir) {
+    Get-ChildItem -LiteralPath $distAssetsDir -Force |
+        Copy-Item -Destination $publicAssetsDir -Recurse -Force
+}
+$frontendJs = Get-ChildItem -LiteralPath $publicAssetsDir -Filter 'index-*.js' -File -ErrorAction SilentlyContinue
+$frontendCss = Get-ChildItem -LiteralPath $publicAssetsDir -Filter 'index-*.css' -File -ErrorAction SilentlyContinue
+if (-not $frontendJs -or -not $frontendCss) {
+    throw "Frontend hash'li dosyalari public\assets altinda bulunamadi (index-*.js/css). /assets route'u bozuk olabilir."
+}
+Write-Ok "Frontend /assets dosyalari dogrulandi: $($frontendJs.Name), $($frontendCss.Name)"
+
 Get-ChildItem -LiteralPath (Join-Path $BackendRuntime 'dist') -Recurse -File |
     Where-Object { $_.Extension -in @('.map', '.d.ts') -or $_.Name -like '*.tsbuildinfo' } |
     ForEach-Object { Remove-Item -LiteralPath $_.FullName -Force }
@@ -242,6 +260,7 @@ $requiredFiles = @(
     'runtime\node\node.exe',
     'app\backend\dist\src\main.js',
     'app\backend\public\dist\index.html',
+    'app\backend\public\assets',
     'app\backend\node_modules\sqlite3',
     'app\backend\node_modules\better-sqlite3',
     'app\backend\node_modules\argon2',

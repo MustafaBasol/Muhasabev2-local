@@ -77,6 +77,10 @@ export class UsersService {
     if (stack) this.logger.debug(stack);
   }
 
+  async count(): Promise<number> {
+    return this.userRepository.count();
+  }
+
   async findAll() {
     return this.userRepository.find({
       select: [

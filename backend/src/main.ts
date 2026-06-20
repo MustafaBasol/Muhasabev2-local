@@ -75,6 +75,32 @@ const toRequestHandler = (middleware: unknown): RequestHandler => {
   return middleware as RequestHandler;
 };
 
+// The native-local launcher (comptario-native.ps1 -> hidden child
+// powershell -> run-native-backend.ps1) redirects stdout/stderr to log
+// files through a hidden console window. Under that setup, a write to
+// stderr can fail at the OS pipe level (e.g. EPIPE/EBADF) instead of
+// just landing in the file. Node's default behavior for a stream write
+// error on stdout/stderr is to throw, which kills the whole process with
+// NO trace in backend-error.log - this is what made every 4xx/5xx error
+// response (which Nest logs via Logger.error -> stderr) capable of taking
+// the backend down, including the original register-after-setup case.
+// Swallowing the 'error' event here is the standard Node fix for this
+// class of bug (see nodejs/node#947) and must be registered before
+// anything else writes to these streams.
+process.stdout.on('error', () => {});
+process.stderr.on('error', () => {});
+
+// Without these, an unhandled rejection (e.g. a stray promise from a
+// fire-and-forget side effect) silently kills the Node process with no
+// stack trace in the logs - this is what made the native-local register
+// crash undiagnosable from backend-error.log. Log and keep running instead.
+process.on('uncaughtException', (error: Error) => {
+  console.error('❌ uncaughtException (process kept alive):', error);
+});
+process.on('unhandledRejection', (reason: unknown) => {
+  console.error('❌ unhandledRejection (process kept alive):', reason);
+});
+
 const LOCAL_BASELINE_MIGRATION = 'InitialSchema1769999999999';
 
 const migrationTimestamp = (name?: string): number => {

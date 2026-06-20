@@ -83,10 +83,18 @@ export class GlobalExceptionFilter implements ExceptionFilter {
       },
     };
 
-    this.logger.error(
-      `HTTP ${status} ${error} - ${message} - meta=${JSON.stringify(metadata)}`,
-      exception instanceof Error ? exception.stack : undefined,
-    );
+    // Expected client errors (4xx - validation, conflict, forbidden, not
+    // found, etc.) are normal control flow, not failures; only genuinely
+    // unexpected server errors (5xx) warrant ERROR-level logging.
+    const logLine = `HTTP ${status} ${error} - ${message} - meta=${JSON.stringify(metadata)}`;
+    if (status >= 500) {
+      this.logger.error(
+        logLine,
+        exception instanceof Error ? exception.stack : undefined,
+      );
+    } else {
+      this.logger.warn(logLine);
+    }
 
     response.status(status).json(errorInfo);
   }

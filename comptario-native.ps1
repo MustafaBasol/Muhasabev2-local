@@ -57,7 +57,6 @@ function Ensure-RuntimeConfig {
         "FRONTEND_URL=$AppUrl"
         "APP_PUBLIC_URL=$AppUrl"
         "CORS_ORIGINS=$AppUrl"
-        "NATIVE_ASSETS_DIR=$AssetsDir"
         "BLOG_ASSETS_DIR=$BlogAssetsDir"
         "BACKUP_DIR=$BackupsDir"
         'MAIL_PROVIDER=log'
@@ -109,6 +108,39 @@ function Get-NativeHealth {
         return $null
     }
     return $null
+}
+
+function Test-NativeStaticAssets {
+    $publicAssetsDir = Join-Path $BackendRoot 'public\assets'
+    Write-Step 'Statik dosyalar dogrulaniyor (/assets)...'
+    Write-Note "Frontend assets klasoru: $publicAssetsDir"
+    Write-Note "Blog assets klasoru: $AssetsDir"
+    try {
+        $indexResponse = Invoke-WebRequest -Uri $AppUrl -TimeoutSec 5 -UseBasicParsing
+        if ($indexResponse.StatusCode -ne 200) {
+            Write-Note "Uyari: '/' beklenmeyen durum kodu dondurdu: $($indexResponse.StatusCode)"
+        }
+    } catch {
+        Write-Note "Uyari: ana sayfa istegi basarisiz oldu: $($_.Exception.Message)"
+        return
+    }
+
+    $jsFile = Get-ChildItem -LiteralPath $publicAssetsDir -Filter 'index-*.js' -File -ErrorAction SilentlyContinue | Select-Object -First 1
+    $cssFile = Get-ChildItem -LiteralPath $publicAssetsDir -Filter 'index-*.css' -File -ErrorAction SilentlyContinue | Select-Object -First 1
+    foreach ($asset in @($jsFile, $cssFile)) {
+        if (-not $asset) { continue }
+        $assetUrl = "$AppUrl/assets/$($asset.Name)"
+        try {
+            $assetResponse = Invoke-WebRequest -Uri $assetUrl -TimeoutSec 5 -UseBasicParsing
+            if ($assetResponse.StatusCode -eq 200) {
+                Write-Ok "Dogrulandi: $assetUrl"
+            } else {
+                Write-Note "Uyari: $assetUrl beklenmeyen durum kodu dondurdu: $($assetResponse.StatusCode)"
+            }
+        } catch {
+            Write-Note "Uyari: $assetUrl istegi basarisiz oldu: $($_.Exception.Message)"
+        }
+    }
 }
 
 Ensure-Directories
@@ -186,6 +218,8 @@ if ($health) {
     }
     Write-Ok 'Uygulama hazir.'
 }
+
+Test-NativeStaticAssets
 
 if ($env:COMPTARIO_NATIVE_NO_BROWSER -ne 'true') {
     Write-Step 'Tarayici aciliyor...'

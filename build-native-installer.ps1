@@ -175,6 +175,7 @@ $required = @(
     'runtime\node\node.exe',
     'app\backend\dist\src\main.js',
     'app\backend\public\dist\index.html',
+    'app\backend\public\assets',
     'app\backend\node_modules\sqlite3',
     'app\backend\node_modules\better-sqlite3',
     'assets\comptario.ico',
@@ -189,6 +190,19 @@ foreach ($rel in $required) {
     $p = Join-Path $RuntimeRoot $rel
     if (-not (Test-Path -LiteralPath $p)) {
         $problems += "EKSIK gerekli dosya/klasor -> $rel"
+    }
+}
+
+# Frontend /assets route'unun calismasi icin hash'li index-*.js/css
+# dosyalari public\assets altinda bulunmali (musteri verisiyle degil).
+$publicAssetsCheck = Join-Path $RuntimeRoot 'app\backend\public\assets'
+if (Test-Path -LiteralPath $publicAssetsCheck) {
+    $hasJs = Get-ChildItem -LiteralPath $publicAssetsCheck -Filter 'index-*.js' -File -ErrorAction SilentlyContinue
+    $hasCss = Get-ChildItem -LiteralPath $publicAssetsCheck -Filter 'index-*.css' -File -ErrorAction SilentlyContinue
+    if (-not $hasJs -or -not $hasCss) {
+        $problems += "public\assets icinde frontend index-*.js/css bulunamadi -> $publicAssetsCheck"
+    } else {
+        Write-Ok "Frontend /assets dosyalari mevcut: $($hasJs.Name), $($hasCss.Name)"
     }
 }
 

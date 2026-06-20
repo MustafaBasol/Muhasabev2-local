@@ -4,6 +4,7 @@ import {
   ExecutionContext,
   CallHandler,
   Logger,
+  HttpException,
 } from '@nestjs/common';
 import { Observable } from 'rxjs';
 import { tap } from 'rxjs/operators';
@@ -39,9 +40,17 @@ export class LoggingInterceptor implements NestInterceptor {
           const duration = Date.now() - startTime;
           const message =
             error instanceof Error ? error.message : 'Unknown error';
-          this.logger.error(
-            `❌ ${method} ${url} - ERROR - ${duration}ms - ${message}`,
-          );
+          const line = `❌ ${method} ${url} - ERROR - ${duration}ms - ${message}`;
+          // Expected client errors (4xx) are normal control flow, not
+          // failures; only unexpected 5xx (or non-HTTP) errors warrant
+          // ERROR-level logging.
+          const status =
+            error instanceof HttpException ? error.getStatus() : 500;
+          if (status >= 500) {
+            this.logger.error(line);
+          } else {
+            this.logger.warn(line);
+          }
         },
       }),
     );

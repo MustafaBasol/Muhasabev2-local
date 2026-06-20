@@ -29,6 +29,7 @@ import { LoginAttemptsService } from './login-attempts.service';
 import { AuditAction } from '../audit/entities/audit-log.entity';
 import { Role } from '../common/enums/organization.enum';
 import { TenantPlanLimitService } from '../common/tenant-plan-limits.service';
+import { isNativeLocalEdition } from '../database/database-driver';
 
 type RequestHeaders = Record<string, string | string[] | undefined>;
 
@@ -72,6 +73,19 @@ export class AuthService {
   // Replaced by LoginAttemptsService (memory or Redis)
 
   async register(registerDto: RegisterDto) {
+    // Native-local (single-business desktop install): only the very first
+    // setup may use public registration. Once any user exists, further
+    // public signups must be rejected explicitly instead of creating
+    // unintended second tenants/admins on the same local install.
+    if (isNativeLocalEdition()) {
+      const existingUserCount = await this.usersService.count();
+      if (existingUserCount > 0) {
+        throw new ForbiddenException(
+          'Public registration is disabled after initial setup on this local install.',
+        );
+      }
+    }
+
     // Turnstile mandatory for public signup when secret configured
     if (this.turnstileService.isEnabled()) {
       const ok = await this.turnstileService.verify(registerDto.turnstileToken);
@@ -91,23 +105,39 @@ export class AuthService {
       throw new ConflictException('User with this email already exists');
     }
 
-    // Create tenant first
-    const tenant = await this.tenantsService.create({
-      name:
-        registerDto.companyName ||
-        `${registerDto.firstName} ${registerDto.lastName}`,
-      companyName: registerDto.companyName,
-    });
+    let tenant: Tenant;
+    let user: User;
+    try {
+      // Create tenant first
+      tenant = await this.tenantsService.create({
+        name:
+          registerDto.companyName ||
+          `${registerDto.firstName} ${registerDto.lastName}`,
+        companyName: registerDto.companyName,
+      });
 
-    // Create admin user for the tenant
-    const user = await this.usersService.create({
-      email: registerDto.email,
-      password: registerDto.password,
-      firstName: registerDto.firstName,
-      lastName: registerDto.lastName,
-      role: UserRole.TENANT_ADMIN,
-      tenantId: tenant.id,
-    });
+      // Create admin user for the tenant
+      user = await this.usersService.create({
+        email: registerDto.email,
+        password: registerDto.password,
+        firstName: registerDto.firstName,
+        lastName: registerDto.lastName,
+        role: UserRole.TENANT_ADMIN,
+        tenantId: tenant.id,
+      });
+    } catch (error) {
+      // Duplicate email/slug constraint races (e.g. two concurrent register
+      // calls for the same email) must surface as a controlled 409, not an
+      // unhandled 500/crash.
+      if (this.isUniqueConstraintError(error)) {
+        throw new ConflictException('User with this email already exists');
+      }
+      this.logger.error(
+        `auth.register.createFailed: ${error instanceof Error ? error.message : String(error)}`,
+        error instanceof Error ? error.stack : undefined,
+      );
+      throw error;
+    }
 
     // Issue email verification token record (24h)
     const raw = this.securityService.generateRandomString(24);
@@ -959,6 +989,29 @@ If you did not create this account, contact support immediately.`;
     if (error instanceof Error && error.stack) {
       this.logger.debug(error.stack);
     }
+  }
+
+  // Postgres unique_violation = '23505'; SQLite (sqlite3/better-sqlite3 via
+  // TypeORM) reports 'SQLITE_CONSTRAINT' (sometimes with a
+  // 'SQLITE_CONSTRAINT_UNIQUE' suffix in the message).
+  private isUniqueConstraintError(error: unknown): boolean {
+    if (!error || typeof error !== 'object') return false;
+    const code = (error as { code?: unknown }).code;
+    const driverError = (error as { driverError?: { code?: unknown } })
+      .driverError;
+    const driverCode =
+      driverError && typeof driverError === 'object'
+        ? (driverError as { code?: unknown }).code
+        : undefined;
+    if (code === '23505' || driverCode === '23505') return true;
+    if (typeof code === 'string' && code.startsWith('SQLITE_CONSTRAINT'))
+      return true;
+    if (
+      typeof driverCode === 'string' &&
+      driverCode.startsWith('SQLITE_CONSTRAINT')
+    )
+      return true;
+    return false;
   }
 
   private getHeaderValue(

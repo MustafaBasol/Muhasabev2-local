@@ -58,6 +58,31 @@ export const createCustomer = async (data: CreateCustomerDto): Promise<Customer>
   return response.data;
 };
 
+export interface BulkCreateCustomersResultItem {
+  index: number;
+  success: boolean;
+  customer?: Customer;
+  error?: string;
+}
+
+export interface BulkCreateCustomersResult {
+  created: number;
+  failed: number;
+  results: BulkCreateCustomersResultItem[];
+}
+
+/**
+ * Birden fazla müşteriyi tek istekte oluştur (CSV/Excel import için)
+ */
+export const bulkCreateCustomers = async (
+  customers: CreateCustomerDto[]
+): Promise<BulkCreateCustomersResult> => {
+  const response = await apiClient.post<BulkCreateCustomersResult>('/customers/bulk', {
+    customers,
+  });
+  return response.data;
+};
+
 /**
  * Müşteri güncelle
  */

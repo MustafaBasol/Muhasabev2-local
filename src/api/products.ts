@@ -82,6 +82,31 @@ export const createProduct = async (data: CreateProductDto): Promise<Product> =>
   return response.data;
 };
 
+export interface BulkCreateProductsResultItem {
+  index: number;
+  success: boolean;
+  product?: Product;
+  error?: string;
+}
+
+export interface BulkCreateProductsResult {
+  created: number;
+  failed: number;
+  results: BulkCreateProductsResultItem[];
+}
+
+/**
+ * Birden fazla ürünü tek istekte oluştur (CSV/Excel import için)
+ */
+export const bulkCreateProducts = async (
+  products: CreateProductDto[]
+): Promise<BulkCreateProductsResult> => {
+  const response = await apiClient.post<BulkCreateProductsResult>('/products/bulk', {
+    products,
+  });
+  return response.data;
+};
+
 /**
  * Ürün güncelle
  */

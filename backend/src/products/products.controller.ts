@@ -12,6 +12,7 @@ import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { ProductsService } from './products.service';
 import { CreateProductDto } from './dto/create-product.dto';
 import { UpdateProductDto } from './dto/update-product.dto';
+import { BulkCreateProductsDto } from './dto/bulk-create-products.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { User } from '../common/decorators/user.decorator';
 import type { CurrentUser } from '../common/decorators/user.decorator';
@@ -33,6 +34,19 @@ export class ProductsController {
     @User() user: CurrentUser,
   ) {
     return this.productsService.create(createProductDto, user.tenantId);
+  }
+
+  @Post('bulk')
+  @ApiOperation({ summary: 'Bulk create products (e.g. CSV/Excel import)' })
+  @Audit('Product', AuditAction.CREATE)
+  async bulkCreate(
+    @Body() bulkCreateProductsDto: BulkCreateProductsDto,
+    @User() user: CurrentUser,
+  ) {
+    return this.productsService.bulkCreate(
+      bulkCreateProductsDto.products,
+      user.tenantId,
+    );
   }
 
   @Get()

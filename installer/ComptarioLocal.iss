@@ -74,6 +74,10 @@ Name: "{group}\Support Tools\Uygulamayı Aç"; Filename: "{app}\open-local-app.b
   WorkingDir: "{app}"; IconFilename: "{app}\assets\comptario.ico"; \
   Comment: "Çalışan Comptario Local uygulamasını tarayıcıda açar."
 
+Name: "{group}\Support Tools\Başlat"; Filename: "{app}\comptario-local.bat"; \
+  WorkingDir: "{app}"; IconFilename: "{app}\assets\comptario.ico"; \
+  Comment: "Comptario Local uygulamasını başlatır."
+
 Name: "{group}\Support Tools\Yedek Al"; Filename: "powershell.exe"; \
   Parameters: "-NoProfile -ExecutionPolicy Bypass -Command ""& '{app}\backup-local.ps1'; Read-Host 'Kapatmak icin Enter tusuna basin'"""; \
   WorkingDir: "{app}"; IconFilename: "{app}\assets\comptario.ico"; \
@@ -150,5 +154,78 @@ begin
            'Docker kurulumundan sonra Windows''u yeniden başlatmanız gerekebilir.' + #13#10 + #13#10 +
            'İndirme adresi: https://www.docker.com/products/docker-desktop/',
            mbInformation, MB_OK);
+  end;
+end;
+
+procedure CurStepChanged(CurStep: TSetupStep);
+var
+  GroupDir, SupportDir, BackupParams, RestoreParams, StopParams: String;
+begin
+  // Belt-and-suspenders: the customer relies on these Start Menu shortcuts
+  // as the ONLY way to reach Backup/Restore/Stop (there is no other UI for
+  // them). [Icons] entries above are skipped entirely if Setup is launched
+  // with /NOICONS (a switch some silent-deploy/RMM wrappers add by default
+  // for "no desktop clutter" policies) - that flag suppresses every [Icons]
+  // entry, not just task-gated ones. Recreate the critical shortcuts here
+  // unconditionally so they always exist regardless of how Setup was
+  // invoked. CreateShellLink overwrites any shortcut [Icons] already made,
+  // so this is a no-op duplicate in the normal case.
+  if CurStep = ssPostInstall then
+  begin
+    GroupDir := ExpandConstant('{group}');
+    SupportDir := GroupDir + '\Support Tools';
+    ForceDirectories(GroupDir);
+    ForceDirectories(SupportDir);
+
+    CreateShellLink(
+      GroupDir + '\Comptario Local.lnk',
+      'Comptario Local uygulamasını başlatır ve tarayıcıda açar.',
+      ExpandConstant('{app}\comptario-local.bat'), '',
+      ExpandConstant('{app}'), ExpandConstant('{app}\assets\comptario.ico'),
+      0, SW_SHOWNORMAL);
+
+    CreateShellLink(
+      SupportDir + '\Başlat.lnk',
+      'Comptario Local uygulamasını başlatır.',
+      ExpandConstant('{app}\comptario-local.bat'), '',
+      ExpandConstant('{app}'), ExpandConstant('{app}\assets\comptario.ico'),
+      0, SW_SHOWNORMAL);
+
+    BackupParams := '-NoProfile -ExecutionPolicy Bypass -Command "& ''' +
+      ExpandConstant('{app}\backup-local.ps1') +
+      '''; Read-Host ''Kapatmak icin Enter tusuna basin''"';
+    CreateShellLink(
+      SupportDir + '\Yedek Al.lnk',
+      'Veritabanının yedeğini local-backups klasörüne alır.',
+      'powershell.exe', BackupParams,
+      ExpandConstant('{app}'), ExpandConstant('{app}\assets\comptario.ico'),
+      0, SW_SHOWNORMAL);
+
+    RestoreParams := '-NoProfile -ExecutionPolicy Bypass -Command "& ''' +
+      ExpandConstant('{app}\restore-local.ps1') +
+      '''; Read-Host ''Kapatmak icin Enter tusuna basin''"';
+    CreateShellLink(
+      SupportDir + '\Geri Yükle.lnk',
+      'Seçilen yedekten veritabanını geri yükler.',
+      'powershell.exe', RestoreParams,
+      ExpandConstant('{app}'), ExpandConstant('{app}\assets\comptario.ico'),
+      0, SW_SHOWNORMAL);
+
+    StopParams := '-NoProfile -ExecutionPolicy Bypass -Command "& ''' +
+      ExpandConstant('{app}\stop-local.ps1') +
+      '''; Read-Host ''Kapatmak icin Enter tusuna basin''"';
+    CreateShellLink(
+      SupportDir + '\Durdur.lnk',
+      'Comptario Local uygulamasını durdurur. Veriler korunur.',
+      'powershell.exe', StopParams,
+      ExpandConstant('{app}'), ExpandConstant('{app}\assets\comptario.ico'),
+      0, SW_SHOWNORMAL);
+
+    CreateShellLink(
+      SupportDir + '\Destek Menüsü.lnk',
+      'Tüm destek işlemlerini tek pencerede sunan menü.',
+      ExpandConstant('{app}\comptario-local-support.bat'), '',
+      ExpandConstant('{app}'), ExpandConstant('{app}\assets\comptario.ico'),
+      0, SW_SHOWNORMAL);
   end;
 end;

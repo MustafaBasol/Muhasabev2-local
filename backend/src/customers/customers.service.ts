@@ -14,6 +14,7 @@ import { TenantPlanLimitService } from '../common/tenant-plan-limits.service';
 
 import { CreateCustomerDto } from './dto/create-customer.dto';
 import { UpdateCustomerDto } from './dto/update-customer.dto';
+import { BulkCreateCustomersResult } from './dto/bulk-create-customers.dto';
 
 @Injectable()
 export class CustomersService {
@@ -95,6 +96,86 @@ export class CustomersService {
     }
   }
 
+  async bulkCreate(
+    dtos: CreateCustomerDto[],
+    tenantId: string,
+  ): Promise<BulkCreateCustomersResult> {
+    const tenant = await this.tenantRepository.findOne({
+      where: { id: tenantId },
+    });
+    if (!tenant) {
+      throw new NotFoundException('Tenant not found');
+    }
+
+    const limits = TenantPlanLimitService.getLimitsForTenant(tenant);
+    const currentCount = await this.customersRepository.count({
+      where: { tenantId },
+    });
+    const seenEmails = new Set<string>();
+
+    const results: BulkCreateCustomersResult['results'] = [];
+    let created = 0;
+    let failed = 0;
+
+    for (let index = 0; index < dtos.length; index++) {
+      const dto = dtos[index];
+      try {
+        if (
+          !TenantPlanLimitService.canAddCustomerForTenant(
+            currentCount + created,
+            tenant,
+          )
+        ) {
+          throw new BadRequestException(
+            TenantPlanLimitService.errorMessageForWithLimits(
+              'customer',
+              limits,
+            ),
+          );
+        }
+
+        const email = (dto.email || '').trim();
+        if (email) {
+          const emailKey = email.toLowerCase();
+          if (seenEmails.has(emailKey)) {
+            throw new BadRequestException(
+              `Bu e-posta (${email}) ile zaten bir müşteri kayıtlı`,
+            );
+          }
+          const existing = await this.customersRepository
+            .createQueryBuilder('c')
+            .where('c.tenantId = :tenantId', { tenantId })
+            .andWhere('LOWER(TRIM(c.email)) = LOWER(TRIM(:email))', {
+              email,
+            })
+            .getOne();
+          if (existing) {
+            throw new BadRequestException(
+              `Bu e-posta (${email}) ile zaten bir müşteri kayıtlı`,
+            );
+          }
+          seenEmails.add(emailKey);
+        }
+
+        const customer = this.customersRepository.create({
+          ...dto,
+          tenantId,
+        });
+        const saved = await this.customersRepository.save(customer);
+        created++;
+        results.push({ index, success: true, customer: saved });
+      } catch (error) {
+        failed++;
+        const message = this.isUniqueCustomerConstraint(error)
+          ? 'Bu e-posta ile zaten bir müşteri kayıtlı'
+          : this.getErrorMessage(error);
+        results.push({ index, success: false, error: message });
+      }
+    }
+
+    return { created, failed, results };
+  }
+
   async update(
     id: string,
     updateCustomerDto: UpdateCustomerDto,
@@ -158,6 +239,24 @@ export class CustomersService {
     const customer = await this.findOne(id, tenantId);
     customer.balance = Number(customer.balance) + amount;
     return this.customersRepository.save(customer);
+  }
+
+  private getErrorMessage(error: unknown): string {
+    if (error instanceof HttpException) {
+      const response = error.getResponse();
+      if (typeof response === 'string') {
+        return response;
+      }
+      if (typeof response === 'object' && response !== null && 'message' in response) {
+        const msg = (response as Record<string, unknown>).message;
+        return Array.isArray(msg) ? msg.join(', ') : String(msg);
+      }
+      return error.message;
+    }
+    if (error instanceof Error) {
+      return error.message;
+    }
+    return 'Bilinmeyen hata';
   }
 
   private isUniqueCustomerConstraint(error: unknown): boolean {

@@ -2816,41 +2816,33 @@ const AppContent: React.FC = () => {
         return;
       }
 
-      // Persist imported customers to backend if possible
+      // Persist imported customers to backend in a single bulk request
       try {
         logger.info('app.import.customers.persist.start', { count: imported.length });
-        const results = await Promise.allSettled(
-          imported.map((c, idx) => {
-            logger.debug('app.import.customers.persist.request', { index: idx, name: c.name || 'unknown' });
-            return customersApi.createCustomer({
-              name: c.name,
-              email: c.email || undefined,
-              phone: c.phone || undefined,
-              address: c.address || undefined,
-              taxNumber: c.taxNumber || undefined,
-              company: c.company || undefined,
-            }).then(res => {
-              logger.debug('app.import.customers.persist.success', { index: idx, customerId: res?.id });
-              return res;
-            }).catch(err => {
-              logger.warn('app.import.customers.persist.failure', {
-                index: idx,
-                name: c.name || 'unknown',
-                error: getErrorMessage(err),
-              });
-              throw err;
-            });
-          })
+        const bulkResult = await customersApi.bulkCreateCustomers(
+          imported.map((c) => ({
+            name: c.name,
+            email: c.email || undefined,
+            phone: c.phone || undefined,
+            address: c.address || undefined,
+            taxNumber: c.taxNumber || undefined,
+            company: c.company || undefined,
+          }))
         );
 
         const created: any[] = [];
-        const failed: { index: number; reason: any }[] = [];
+        const failed: { index: number; reason: string }[] = [];
 
-        results.forEach((r, i) => {
-          if (r.status === 'fulfilled') {
-            created.push(r.value);
+        bulkResult.results.forEach((r) => {
+          if (r.success && r.customer) {
+            created.push(r.customer);
           } else {
-            failed.push({ index: i, reason: r.reason });
+            failed.push({ index: r.index, reason: r.error || 'unknown' });
+            logger.warn('app.import.customers.persist.failure', {
+              index: r.index,
+              name: imported[r.index]?.name || 'unknown',
+              error: r.error,
+            });
           }
         });
 
@@ -3035,45 +3027,38 @@ const AppContent: React.FC = () => {
         return;
       }
 
-      // Backend'e kaydet
+      // Backend'e kaydet (tek bulk istek ile)
       try {
         logger.info('app.import.products.persist.start', { count: imported.length });
-        const results = await Promise.allSettled(
-          imported.map((p, index) => {
-            const dto = {
-              name: p.name,
-              code: p.sku || p.name, // SKU yoksa isimden üret
-              price: Number(p.unitPrice ?? 0),
-              cost: p.costPrice != null ? Number(p.costPrice) : undefined,
-              stock: p.stockQuantity != null ? Number(p.stockQuantity) : undefined,
-              minStock: p.reorderLevel != null ? Number(p.reorderLevel) : undefined,
-              unit: p.unit,
-              category: p.category || 'Genel',
-              description: p.description,
-              taxRate: p.taxRate != null ? Number(p.taxRate) : undefined,
-            } as const;
-            logger.debug('app.import.products.persist.request', { index, name: p.name });
-            return productsApi.createProduct(dto)
-              .then(res => {
-                logger.debug('app.import.products.persist.success', { index, productId: res?.id });
-                return res;
-              })
-              .catch(err => {
-                logger.warn('app.import.products.persist.failure', {
-                  index,
-                  name: p.name,
-                  error: getErrorMessage(err),
-                });
-                throw err;
-              });
-          })
+        const bulkResult = await productsApi.bulkCreateProducts(
+          imported.map((p) => ({
+            name: p.name,
+            code: p.sku || p.name, // SKU yoksa isimden üret
+            price: Number(p.unitPrice ?? 0),
+            cost: p.costPrice != null ? Number(p.costPrice) : undefined,
+            stock: p.stockQuantity != null ? Number(p.stockQuantity) : undefined,
+            minStock: p.reorderLevel != null ? Number(p.reorderLevel) : undefined,
+            unit: p.unit,
+            category: p.category || 'Genel',
+            description: p.description,
+            taxRate: p.taxRate != null ? Number(p.taxRate) : undefined,
+          }))
         );
 
         const created: any[] = [];
-        const failed: { index: number; reason: any }[] = [];
-        results.forEach((r, i) => {
-          if (r.status === 'fulfilled') created.push(r.value);
-          else failed.push({ index: i, reason: r.reason });
+        const failed: { index: number; reason: string }[] = [];
+
+        bulkResult.results.forEach((r) => {
+          if (r.success && r.product) {
+            created.push(r.product);
+          } else {
+            failed.push({ index: r.index, reason: r.error || 'unknown' });
+            logger.warn('app.import.products.persist.failure', {
+              index: r.index,
+              name: imported[r.index]?.name || 'unknown',
+              error: r.error,
+            });
+          }
         });
 
         // Frontend state'i güncelle ve cache'e yaz

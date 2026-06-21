@@ -99,6 +99,10 @@ Name: "{group}\Support Tools\Geri Yükle"; Filename: "{app}\restore-native.bat";
   WorkingDir: "{app}"; IconFilename: "{app}\assets\comptario.ico"; \
   Comment: "Seçilen yedekten veritabanını geri yükler."
 
+Name: "{group}\Support Tools\Başlat"; Filename: "{app}\comptario-native.bat"; \
+  WorkingDir: "{app}"; IconFilename: "{app}\assets\comptario.ico"; \
+  Comment: "Comptario Local uygulamasını başlatır."
+
 Name: "{group}\Support Tools\Durdur"; Filename: "{app}\stop-native.bat"; \
   WorkingDir: "{app}"; IconFilename: "{app}\assets\comptario.ico"; \
   Comment: "Comptario Local uygulamasını durdurur. Veriler korunur."
@@ -152,5 +156,62 @@ begin
       DelTree(ExpandConstant('{app}\runtime'), True, True, True);
     if DirExists(ExpandConstant('{app}\assets')) then
       DelTree(ExpandConstant('{app}\assets'), True, True, True);
+  end;
+
+  // Belt-and-suspenders: the customer relies on these Start Menu shortcuts
+  // as the ONLY way to reach Backup/Restore/Stop (there is no other UI for
+  // them). [Icons] entries above are skipped entirely if Setup is launched
+  // with /NOICONS (a switch some silent-deploy/RMM wrappers add by default
+  // for "no desktop clutter" policies) - that flag suppresses every [Icons]
+  // entry, not just task-gated ones. Recreate the critical shortcuts here
+  // unconditionally so they always exist regardless of how Setup was
+  // invoked. CreateShellLink overwrites any shortcut [Icons] already made,
+  // so this is a no-op duplicate in the normal case.
+  if CurStep = ssPostInstall then
+  begin
+    ForceDirectories(ExpandConstant('{group}'));
+    ForceDirectories(ExpandConstant('{group}\Support Tools'));
+
+    CreateShellLink(
+      ExpandConstant('{group}\Comptario Local.lnk'),
+      'Comptario Local uygulamasını başlatır ve tarayıcıda açar.',
+      ExpandConstant('{app}\comptario-native.bat'), '',
+      ExpandConstant('{app}'), ExpandConstant('{app}\assets\comptario.ico'),
+      0, SW_SHOWNORMAL);
+
+    CreateShellLink(
+      ExpandConstant('{group}\Support Tools\Başlat.lnk'),
+      'Comptario Local uygulamasını başlatır.',
+      ExpandConstant('{app}\comptario-native.bat'), '',
+      ExpandConstant('{app}'), ExpandConstant('{app}\assets\comptario.ico'),
+      0, SW_SHOWNORMAL);
+
+    CreateShellLink(
+      ExpandConstant('{group}\Support Tools\Yedek Al.lnk'),
+      'Veritabanının ve dosyaların yedeğini backups klasörüne alır.',
+      ExpandConstant('{app}\backup-native.bat'), '',
+      ExpandConstant('{app}'), ExpandConstant('{app}\assets\comptario.ico'),
+      0, SW_SHOWNORMAL);
+
+    CreateShellLink(
+      ExpandConstant('{group}\Support Tools\Geri Yükle.lnk'),
+      'Seçilen yedekten veritabanını geri yükler.',
+      ExpandConstant('{app}\restore-native.bat'), '',
+      ExpandConstant('{app}'), ExpandConstant('{app}\assets\comptario.ico'),
+      0, SW_SHOWNORMAL);
+
+    CreateShellLink(
+      ExpandConstant('{group}\Support Tools\Durdur.lnk'),
+      'Comptario Local uygulamasını durdurur. Veriler korunur.',
+      ExpandConstant('{app}\stop-native.bat'), '',
+      ExpandConstant('{app}'), ExpandConstant('{app}\assets\comptario.ico'),
+      0, SW_SHOWNORMAL);
+
+    CreateShellLink(
+      ExpandConstant('{group}\Support Tools\Destek Menüsü.lnk'),
+      'Başlatma, yedekleme, geri yükleme ve durdurma işlemlerini tek pencerede sunar.',
+      ExpandConstant('{app}\comptario-native-support.bat'), '',
+      ExpandConstant('{app}'), ExpandConstant('{app}\assets\comptario.ico'),
+      0, SW_SHOWNORMAL);
   end;
 end;
